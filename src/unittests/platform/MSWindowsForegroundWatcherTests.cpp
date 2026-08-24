@@ -54,8 +54,8 @@ void MSWindowsForegroundWatcherTests::processImageBaseNameResolvesOwnProcess()
 
 void MSWindowsForegroundWatcherTests::processImageBaseNameFailsForBadPid()
 {
-  // pid 0 is the idle process; it can never be opened or snapshotted by name
-  QVERIFY(MSWindowsForegroundWatcher::processImageBaseName(0).empty());
+  // windows pids are multiples of 4, so pid 3 can never exist
+  QVERIFY(MSWindowsForegroundWatcher::processImageBaseName(3).empty());
 }
 
 QTEST_MAIN(MSWindowsForegroundWatcherTests)

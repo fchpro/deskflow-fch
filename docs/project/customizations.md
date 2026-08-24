@@ -17,11 +17,11 @@ Personal customizations on top of upstream Deskflow. Keep this list current; rea
 `%APPDATA%\Deskflow\Deskflow.conf`:
 ```ini
 [server]
-excludedApps=bf6.exe, valorant.exe
+excludedApps=bf6.exe
 ```
 List is read once at core start (restart core after editing). Caveat: the stock upstream build may strip this unknown key from the conf when it saves settings; re-add after switching to the custom build.
 
-**Known process names**: Battlefield 6 = `bf6.exe`, Valorant = `valorant.exe` (verify: `valorant.exe` assumed, not yet observed live).
+**Known process names**: Battlefield 6 = `bf6.exe` (verified live). Valorant deferred — verify its process name before adding.
 
 **Notes**:
 - Only the jump-zone watching is disabled; the low-level hooks stay installed but pass everything through (`kHOOK_DISABLE`), cost is negligible.

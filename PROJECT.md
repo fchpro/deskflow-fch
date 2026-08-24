@@ -33,7 +33,7 @@ Planned: none yet.
 ## Fork & Update Workflow
 
 - `master` — mirrors upstream Deskflow; never customized directly.
-- Custom branch (personal customizations) — all personal edits live here. **USER ACTION REQUIRED: branch not created yet.**
+- `fch` — custom branch; all personal edits live here.
 - Remote `origin` = `fchpro/deskflow-fch` (personal GitHub fork).
 - Update flow when upstream releases a new version:
   1. User fetches/pulls upstream into `master` (git mutations are user-run).
@@ -56,13 +56,19 @@ None
 
 ## Quick Check
 
-Not defined yet. C++/CMake builds exceed the 30s fast-check budget; a scoped check command must be decided after first build is working. **Open decision.**
+Quick check = run all unit tests against the last build (~5 s). From a VS x64 dev prompt (`VsDevCmd.bat -arch=x64`) with `C:\Qt\6.10.3\msvc2022_64\bin` and `build\vcpkg_installed\x64-windows-release\bin` prepended to PATH:
 
-**Build blocker**: Qt 6 is not installed on this machine (MSVC 2022 is). The project cannot be configured/built or its Qt tests run until Qt 6 is installed (or `VCPKG_QT=ON` with vcpkg). Interim verification: standalone MSVC harness compiling the file under test directly (see `temp/proof-of-work/`).
+```
+cd build\src\unittests && ctest --output-on-failure
+```
+
+Full build (fullcheck equivalent, minutes): `cmake --build build -j12` from the same environment. Note: the default `all` target also runs ctest; without Qt on PATH tests exit 0xc0000135.
+
+**Local toolchain**: MSVC 2022 Community, Qt 6.10.3 at `C:\Qt\6.10.3\msvc2022_64` (installed via aqtinstall), vcpkg at `C:\Work\tools\vcpkg` (openssl via manifest), Ninja via pip (`%APPDATA%\Python\Python313\Scripts\ninja.exe`). Configure command used: `cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=C:\Qt\6.10.3\msvc2022_64 -DCMAKE_TOOLCHAIN_FILE=C:\Work\tools\vcpkg\scripts\buildsystems\vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-release -DBUILD_INSTALLER=OFF`.
 
 ## Master Tests
 
-Upstream unit tests: build with tests enabled, run the Google Test binaries from `src/unittests` via `ctest` in the build directory. No external master-test project.
+Upstream unit tests (Qt Test): 26 test binaries under `src/unittests`, run via `ctest` from `build\src\unittests` (see Quick Check for the required PATH). No external master-test project.
 
 ## Architecture and Workflow Notes
 
