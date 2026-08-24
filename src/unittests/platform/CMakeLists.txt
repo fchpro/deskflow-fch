@@ -16,6 +16,13 @@ if (WIN32)
     SOURCE MSWindowsForegroundWatcherTests.cpp
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/platform"
   )
+  create_test(
+    NAME MSWindowsPauseToastTests
+    DEPENDS platform
+    LIBS base arch
+    SOURCE MSWindowsPauseToastTests.cpp
+    WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/platform"
+  )
 elseif(APPLE)
   create_test(
     NAME OSXClipboardTests

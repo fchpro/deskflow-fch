@@ -22,6 +22,7 @@ class EventQueueTimer;
 class MSWindowsDesks;
 class MSWindowsForegroundWatcher;
 class MSWindowsKeyState;
+class MSWindowsPauseToast;
 class MSWindowsScreenSaver;
 class Thread;
 class MSWindowsDropTarget;
@@ -196,7 +197,7 @@ private: // HACK
 
   // pause/resume input sharing when an excluded app gains/loses the
   // foreground window (primary screen only)
-  void handleExcludedAppChange(bool excluded);
+  void handleExcludedAppChange(bool excluded, const std::wstring &exeName);
 
   // enable/disable special key combinations so we can catch/pass them
   void enableSpecialKeys(bool) const;
@@ -336,6 +337,7 @@ private:
   // pauses input sharing while an excluded app (e.g. an fps game) owns the
   // foreground window
   MSWindowsForegroundWatcher *m_foregroundWatcher = nullptr;
+  MSWindowsPauseToast *m_pauseToast = nullptr;
   bool m_excludedAppActive = false;
 
   static MSWindowsScreen *s_screen;

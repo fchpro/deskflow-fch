@@ -27,3 +27,15 @@ List is read once at core start (restart core after editing). Caveat: the stock 
 - Only the jump-zone watching is disabled; the low-level hooks stay installed but pass everything through (`kHOOK_DISABLE`), cost is negligible.
 - Pause only applies while the cursor is on the primary (Windows) screen.
 - macOS client is untouched; protocol unchanged.
+- **Stock GUI strips the key**: the upstream/stock Deskflow GUI removes `excludedApps` from the conf (unknown key cleanup). Never run the stock GUI while using this feature. The stock service is stopped and disabled; run the custom build (desktop shortcut "Deskflow FCH") in Desktop process mode (`processMode=1`).
+
+## 2. Pause/resume toast (Windows server only)
+
+Small silent popup (bottom-right of work area, ~1 s, no sound, never steals focus) whenever pause/resume triggers: "Deskflow paused — bf6.exe" / "Deskflow resumed — bf6.exe".
+
+**Files**:
+- `src/lib/platform/MSWindowsPauseToast.{h,cpp}` — new. Plain Win32 topmost `WS_EX_NOACTIVATE` popup, GDI-drawn, `WM_TIMER` auto-close. No project deps (logger-free), compiles standalone.
+- `src/lib/platform/MSWindowsScreen.cpp` — `handleExcludedAppChange` shows the toast on every state change while the server is enabled.
+- `src/unittests/platform/MSWindowsPauseToastTests.{h,cpp}` — visibility, bottom-right position, no-activate styles, auto-close, text replacement.
+
+**Limitation**: the toast cannot render over an exclusive-fullscreen game; it is visible on the desktop and over borderless/windowed apps. Non-ASCII characters in toast literals must use `\uXXXX` escapes (MSVC source-charset mojibake otherwise).

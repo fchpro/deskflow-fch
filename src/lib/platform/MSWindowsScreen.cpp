@@ -27,6 +27,7 @@
 #include "platform/MSWindowsEventQueueBuffer.h"
 #include "platform/MSWindowsForegroundWatcher.h"
 #include "platform/MSWindowsKeyState.h"
+#include "platform/MSWindowsPauseToast.h"
 #include "platform/MSWindowsScreenSaver.h"
 
 #include <Shlobj.h>
@@ -127,8 +128,9 @@ MSWindowsScreen::MSWindowsScreen(bool isPrimary, bool useHooks, IEventQueue *eve
         for (const auto &app : excludedApps) {
           apps.push_back(app.trimmed().toStdWString());
         }
+        m_pauseToast = new MSWindowsPauseToast();
         m_foregroundWatcher = new MSWindowsForegroundWatcher(
-            apps, [this](bool excluded, const std::wstring &) { handleExcludedAppChange(excluded); },
+            apps, [this](bool excluded, const std::wstring &exeName) { handleExcludedAppChange(excluded, exeName); },
             [](const std::string &msg) { LOG_INFO("%s", msg.c_str()); }
         );
         m_excludedAppActive = m_foregroundWatcher->isForegroundExcluded();
@@ -138,6 +140,7 @@ MSWindowsScreen::MSWindowsScreen(bool isPrimary, bool useHooks, IEventQueue *eve
     OleInitialize(0);
   } catch (...) {
     delete m_foregroundWatcher;
+    delete m_pauseToast;
     delete m_keyState;
     delete m_desks;
     delete m_screensaver;
@@ -164,6 +167,7 @@ MSWindowsScreen::~MSWindowsScreen()
   m_events->adoptBuffer(nullptr);
   m_events->removeHandler(EventTypes::System, m_events->getSystemTarget());
   delete m_foregroundWatcher;
+  delete m_pauseToast;
   delete m_keyState;
   delete m_desks;
   delete m_screensaver;
@@ -1473,16 +1477,22 @@ void MSWindowsScreen::handleFixes()
   }
 }
 
-void MSWindowsScreen::handleExcludedAppChange(bool excluded)
+void MSWindowsScreen::handleExcludedAppChange(bool excluded, const std::wstring &exeName)
 {
   m_excludedAppActive = excluded;
+  if (!m_isPrimary || !m_isEnabled) {
+    return;
+  }
+
+  if (m_pauseToast != nullptr) {
+    m_pauseToast->show((excluded ? L"Deskflow paused \u2014 " : L"Deskflow resumed \u2014 ") + exeName);
+  }
 
   // only change the hook mode while the cursor is on this (primary) screen;
   // enable()/enter() re-apply the paused mode from m_excludedAppActive.
-  if (!m_isPrimary || !m_isEnabled || !m_isOnScreen) {
-    return;
+  if (m_isOnScreen) {
+    m_hook.setMode(excluded ? kHOOK_DISABLE : kHOOK_WATCH_JUMP_ZONE);
   }
-  m_hook.setMode(excluded ? kHOOK_DISABLE : kHOOK_WATCH_JUMP_ZONE);
 }
 
 void MSWindowsScreen::fixClipboardViewer()
