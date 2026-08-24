@@ -1,0 +1,42 @@
+=== Proof: game exclusion feature (MSWindowsForegroundWatcher) ===
+Date: Mon Aug 24 18:46:05 RST 2026
+Harness compiles the REAL project file src/lib/platform/MSWindowsForegroundWatcher.cpp with MSVC.
+Excluded list under test: bf6.exe, valorant.exe. Battlefield 6 (bf6.exe) is running live.
+
+--- rebuild (restored code) ---
+main.cpp
+MSWindowsForegroundWatcher.cpp
+Generating Code...
+
+--- check mode: resolve live bf6 process and match ---
+CHECK: pid=62584 resolvedName='bf6.exe' isExcluded=true
+exit=0
+
+--- bench mode: full detection pipeline cost (target < 20 ms) ---
+BENCH: 1000 iterations, avg=0.020 ms, worst=0.099 ms per detection
+exit=0
+
+--- watch mode: real SetWinEventHook, event->callback latency ---
+WATCH: target='bf6.exe' pid=62584 hwnd=00000000001A0E6C
+LOG: foreground app watcher installed, excluded apps: 2
+WATCH: initial isForegroundExcluded=false
+WATCH: non-excluded hwnd=00000000000101A8
+LOG: foreground app "bf6.exe" is excluded, pausing input sharing
+CALLBACK: excluded=true exe='bf6.exe' latencyFromEvent=1.338 ms
+LOG: foreground app "explorer.exe" is not excluded, resuming input sharing
+CALLBACK: excluded=false exe='explorer.exe' latencyFromEvent=0.566 ms
+LOG: foreground app "bf6.exe" is excluded, pausing input sharing
+CALLBACK: excluded=true exe='bf6.exe' latencyFromEvent=0.489 ms
+LOG: foreground app "explorer.exe" is not excluded, resuming input sharing
+CALLBACK: excluded=false exe='explorer.exe' latencyFromEvent=1.093 ms
+LOG: foreground app "bf6.exe" is excluded, pausing input sharing
+CALLBACK: excluded=true exe='bf6.exe' latencyFromEvent=0.412 ms
+LOG: foreground app "explorer.exe" is not excluded, resuming input sharing
+CALLBACK: excluded=false exe='explorer.exe' latencyFromEvent=0.508 ms
+WATCH: transitions observed=6
+exit=0
+
+--- test insurance (earlier in session): with isExcluded intentionally broken (return false), output was: ---
+CHECK: pid=62584 resolvedName='bf6.exe' isExcluded=false
+WATCH: transitions observed=0
+(code restored afterwards; passing runs above are post-restore)

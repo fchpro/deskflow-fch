@@ -20,6 +20,7 @@
 
 class EventQueueTimer;
 class MSWindowsDesks;
+class MSWindowsForegroundWatcher;
 class MSWindowsKeyState;
 class MSWindowsScreenSaver;
 class Thread;
@@ -193,6 +194,10 @@ private: // HACK
   // fix the clipboard viewer chain
   void fixClipboardViewer();
 
+  // pause/resume input sharing when an excluded app gains/loses the
+  // foreground window (primary screen only)
+  void handleExcludedAppChange(bool excluded);
+
   // enable/disable special key combinations so we can catch/pass them
   void enableSpecialKeys(bool) const;
 
@@ -327,6 +332,11 @@ private:
   MOUSEKEYS m_mouseKeys;
 
   MSWindowsHook m_hook;
+
+  // pauses input sharing while an excluded app (e.g. an fps game) owns the
+  // foreground window
+  MSWindowsForegroundWatcher *m_foregroundWatcher = nullptr;
+  bool m_excludedAppActive = false;
 
   static MSWindowsScreen *s_screen;
 

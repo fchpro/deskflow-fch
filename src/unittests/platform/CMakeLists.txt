@@ -9,6 +9,13 @@ if (WIN32)
     SOURCE MSWindowsClipboardTests.cpp
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/platform"
   )
+  create_test(
+    NAME MSWindowsForegroundWatcherTests
+    DEPENDS platform
+    LIBS base arch
+    SOURCE MSWindowsForegroundWatcherTests.cpp
+    WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/platform"
+  )
 elseif(APPLE)
   create_test(
     NAME OSXClipboardTests

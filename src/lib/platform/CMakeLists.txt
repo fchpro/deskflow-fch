@@ -42,6 +42,8 @@ if(WIN32)
     MSWindowsDesks.h
     MSWindowsEventQueueBuffer.cpp
     MSWindowsEventQueueBuffer.h
+    MSWindowsForegroundWatcher.cpp
+    MSWindowsForegroundWatcher.h
     MSWindowsHook.cpp
     MSWindowsHook.h
     MSWindowsKeyState.cpp

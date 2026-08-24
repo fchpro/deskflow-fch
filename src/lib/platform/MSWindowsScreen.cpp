@@ -25,6 +25,7 @@
 #include "platform/MSWindowsClipboard.h"
 #include "platform/MSWindowsDesks.h"
 #include "platform/MSWindowsEventQueueBuffer.h"
+#include "platform/MSWindowsForegroundWatcher.h"
 #include "platform/MSWindowsKeyState.h"
 #include "platform/MSWindowsScreenSaver.h"
 
@@ -118,8 +119,25 @@ MSWindowsScreen::MSWindowsScreen(bool isPrimary, bool useHooks, IEventQueue *eve
       m_powerManager.disableSleep();
     }
 
+    if (m_isPrimary) {
+      const auto excludedApps = Settings::value(Settings::Server::ExcludedApps).toStringList();
+      if (!excludedApps.isEmpty()) {
+        std::vector<std::wstring> apps;
+        apps.reserve(excludedApps.size());
+        for (const auto &app : excludedApps) {
+          apps.push_back(app.trimmed().toStdWString());
+        }
+        m_foregroundWatcher = new MSWindowsForegroundWatcher(
+            apps, [this](bool excluded, const std::wstring &) { handleExcludedAppChange(excluded); },
+            [](const std::string &msg) { LOG_INFO("%s", msg.c_str()); }
+        );
+        m_excludedAppActive = m_foregroundWatcher->isForegroundExcluded();
+      }
+    }
+
     OleInitialize(0);
   } catch (...) {
+    delete m_foregroundWatcher;
     delete m_keyState;
     delete m_desks;
     delete m_screensaver;
@@ -145,6 +163,7 @@ MSWindowsScreen::~MSWindowsScreen()
   disable();
   m_events->adoptBuffer(nullptr);
   m_events->removeHandler(EventTypes::System, m_events->getSystemTarget());
+  delete m_foregroundWatcher;
   delete m_keyState;
   delete m_desks;
   delete m_screensaver;
@@ -193,8 +212,8 @@ void MSWindowsScreen::enable()
     // set jump zones
     m_hook.setZone(m_x, m_y, m_w, m_h, getJumpZoneSize());
 
-    // watch jump zones
-    m_hook.setMode(kHOOK_WATCH_JUMP_ZONE);
+    // watch jump zones, unless an excluded app is in the foreground
+    m_hook.setMode(m_excludedAppActive ? kHOOK_DISABLE : kHOOK_WATCH_JUMP_ZONE);
   }
 }
 
@@ -239,8 +258,8 @@ void MSWindowsScreen::enter()
     // enable special key sequences on win95 family
     enableSpecialKeys(true);
 
-    // watch jump zones
-    m_hook.setMode(kHOOK_WATCH_JUMP_ZONE);
+    // watch jump zones, unless an excluded app is in the foreground
+    m_hook.setMode(m_excludedAppActive ? kHOOK_DISABLE : kHOOK_WATCH_JUMP_ZONE);
 
     // all messages prior to now are invalid
     nextMark();
@@ -1452,6 +1471,18 @@ void MSWindowsScreen::handleFixes()
   if (m_keyState->didGroupsChange()) {
     updateKeys();
   }
+}
+
+void MSWindowsScreen::handleExcludedAppChange(bool excluded)
+{
+  m_excludedAppActive = excluded;
+
+  // only change the hook mode while the cursor is on this (primary) screen;
+  // enable()/enter() re-apply the paused mode from m_excludedAppActive.
+  if (!m_isPrimary || !m_isEnabled || !m_isOnScreen) {
+    return;
+  }
+  m_hook.setMode(excluded ? kHOOK_DISABLE : kHOOK_WATCH_JUMP_ZONE);
 }
 
 void MSWindowsScreen::fixClipboardViewer()
