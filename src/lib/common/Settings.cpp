@@ -245,6 +245,9 @@ QVariant Settings::defaultValue(const QString &key)
   if (key == Server::Heartbeat)
     return 5000;
 
+  if (key == Server::MouseSendRateHz)
+    return 250; // 0 = send every hook event (upstream behaviour)
+
   if (key == Server::SwitchDelay || key == Server::SwitchDoubleTap)
     return 250;
 

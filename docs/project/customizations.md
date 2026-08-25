@@ -39,3 +39,21 @@ Small silent popup (bottom-right of work area, ~1 s, no sound, never steals focu
 - `src/unittests/platform/MSWindowsPauseToastTests.{h,cpp}` — visibility, bottom-right position, no-activate styles, auto-close, text replacement.
 
 **Limitation**: the toast cannot render over an exclusive-fullscreen game; it is visible on the desktop and over borderless/windowed apps. Non-ASCII characters in toast literals must use `\uXXXX` escapes (MSVC source-charset mojibake otherwise).
+
+## 3. Mouse send-rate limiter (server, all platforms)
+
+**Problem**: a 1000 Hz mouse produces 1000 tiny TCP messages/s while the cursor is on the Mac; over the Windows Mobile Hotspot link this caused seconds of input lag. Lowering the mouse polling rate in G HUB fixed it, but that also affects games.
+
+**Solution**: coalesce mouse deltas server-side before they are sent to clients. Local Windows input is untouched (the hook still runs at full rate).
+
+**Files**:
+- `src/lib/server/MouseMoveCoalescer.h` - new, header-only, dependency-free. Accumulates `dx,dy`; releases at most once per interval; `timeUntilFlushUs()` for the tail timer.
+- `src/lib/server/Server.{h,cpp}` - `onMouseMoveSecondary` routes deltas through the coalescer; `applyMouseMoveSecondary` holds the original clamp/switch/send logic; one-shot `m_mouseFlushTimer` flushes the tail of a motion; pending motion is flushed before button/wheel events and dropped on `switchScreen`.
+- `src/lib/common/Settings.{h,cpp}` - new key `server/mouseSendRateHz` (default `250`, `0` = upstream behaviour: every hook event sent).
+- `src/unittests/server/MouseMoveCoalescerTests.{h,cpp}` - unit tests (rate limit 1000 Hz to 250 Hz, accumulation, flush, reset).
+
+**Configuration** (`%APPDATA%\Deskflow\Deskflow.conf`, restart core after editing):
+```ini
+[server]
+mouseSendRateHz=250
+```

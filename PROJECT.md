@@ -68,12 +68,13 @@ Full build (fullcheck equivalent, minutes): `cmake --build build -j12` from the 
 
 ## Master Tests
 
-Upstream unit tests (Qt Test): 26 test binaries under `src/unittests`, run via `ctest` from `build\src\unittests` (see Quick Check for the required PATH). No external master-test project.
+Unit tests (Qt Test): 28 test binaries (26 upstream + 2 fork) under `src/unittests`, run via `ctest` from `build\src\unittests` (see Quick Check for the required PATH). No external master-test project.
 
 ## Architecture and Workflow Notes
 
 - Client/server architecture: one machine runs the server (keyboard/mouse owner), others run clients; `src/lib/net` handles transport, `src/lib/platform` handles per-OS input injection/capture.
 - Version is derived from git describe; fallback version is hardcoded in root `CMakeLists.txt`.
 - Fork policy: never commit personal customizations to `master`; that branch must stay clean for upstream syncs.
+- Mouse send-rate limiter (server): `MouseMoveCoalescer`, setting `server/mouseSendRateHz` (default 250, 0 = off); see `docs/project/customizations.md`.
 - Game/app exclusion feature (Windows server only): see `docs/project/customizations.md` — new settings key `server/excludedApps`, watcher class `MSWindowsForegroundWatcher`, hook pause via `kHOOK_DISABLE`.
 - All git mutations (branching, merging, pulling upstream) are performed by the user, not the LLM.

@@ -34,6 +34,7 @@ add_library(server STATIC
   Config.h
   InputFilter.cpp
   InputFilter.h
+  MouseMoveCoalescer.h
   PrimaryClient.cpp
   PrimaryClient.h
   Server.cpp

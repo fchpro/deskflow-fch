@@ -23,11 +23,13 @@
 #include "server/ClientListener.h"
 #include "server/ClientProxy.h"
 #include "server/ClientProxyUnknown.h"
+#include "common/Settings.h"
 #include "server/PrimaryClient.h"
 
 #ifdef _WIN32
 #include <algorithm>
 #include <array>
+#include <chrono>
 #endif
 #include <cmath>
 #include <cstdlib>
@@ -64,6 +66,12 @@ Server::Server(ServerConfig &config, PrimaryClient *primaryClient, deskflow::Scr
       clipboard.m_clipboard.close();
     }
     clipboard.m_clipboardData = clipboard.m_clipboard.marshall();
+  }
+
+  // rate-limit mouse moves sent to clients (fork customization). 0 = off.
+  if (const int hz = Settings::value(Settings::Server::MouseSendRateHz).toInt(); hz > 0) {
+    m_mouseCoalescer = MouseMoveCoalescer(1'000'000 / hz);
+    LOG_INFO("mouse send rate limited to %d Hz", hz);
   }
 
   // install event handlers
@@ -158,6 +166,7 @@ Server::~Server()
   m_events->removeHandler(PrimaryScreenFakeInputBegin, m_inputFilter);
   m_events->removeHandler(PrimaryScreenFakeInputEnd, m_inputFilter);
   m_events->removeHandler(Timer, this);
+  stopMouseFlushTimer();
   stopSwitch();
 
   try {
@@ -384,6 +393,10 @@ int32_t Server::getJumpZoneSize(const BaseClientProxy *client) const
 void Server::switchScreen(BaseClientProxy *dst, int32_t x, int32_t y, bool forScreensaver)
 {
   assert(dst != nullptr);
+
+  // pending coalesced motion belongs to the old screen
+  m_mouseCoalescer.reset();
+  stopMouseFlushTimer();
 
   int32_t dx;
   int32_t dy;
@@ -1578,6 +1591,7 @@ void Server::onKeyRepeat(KeyID id, KeyModifierMask mask, int32_t count, KeyButto
 
 void Server::onMouseDown(ButtonID id)
 {
+  flushPendingMouseMove();
   LOG_VERBOSE("onMouseDown id=%d", id);
   assert(m_active != nullptr);
 
@@ -1587,6 +1601,7 @@ void Server::onMouseDown(ButtonID id)
 
 void Server::onMouseUp(ButtonID id)
 {
+  flushPendingMouseMove();
   LOG_VERBOSE("onMouseUp id=%d", id);
   assert(m_active != nullptr);
 
@@ -1712,6 +1727,29 @@ void Server::onMouseMoveSecondary(int32_t dx, int32_t dy)
   assert(m_active != nullptr);
   if (m_active == m_primaryClient) {
     // stale event -- we're actually on the primary screen
+    return;
+  }
+
+  if (!m_mouseCoalescer.enabled()) {
+    applyMouseMoveSecondary(dx, dy);
+    return;
+  }
+
+  const int64_t now = monotonicNowUs();
+  if (const auto delta = m_mouseCoalescer.add(dx, dy, now)) {
+    stopMouseFlushTimer();
+    applyMouseMoveSecondary(delta->dx, delta->dy);
+  } else if (m_mouseFlushTimer == nullptr) {
+    // arm a one-shot timer so the tail of the motion is not left pending
+    const double secs = static_cast<double>(m_mouseCoalescer.timeUntilFlushUs(now)) / 1'000'000.0;
+    m_mouseFlushTimer = m_events->newOneShotTimer(secs, nullptr);
+    m_events->addHandler(EventTypes::Timer, m_mouseFlushTimer, [this](const auto &) { handleMouseFlushTimer(); });
+  }
+}
+
+void Server::applyMouseMoveSecondary(int32_t dx, int32_t dy)
+{
+  if (m_active == m_primaryClient) {
     return;
   }
 
@@ -1863,8 +1901,40 @@ void Server::onMouseMoveSecondary(int32_t dx, int32_t dy)
   }
 }
 
+int64_t Server::monotonicNowUs()
+{
+  using namespace std::chrono;
+  return duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count();
+}
+
+void Server::stopMouseFlushTimer()
+{
+  if (m_mouseFlushTimer != nullptr) {
+    m_events->removeHandler(EventTypes::Timer, m_mouseFlushTimer);
+    m_events->deleteTimer(m_mouseFlushTimer);
+    m_mouseFlushTimer = nullptr;
+  }
+}
+
+void Server::handleMouseFlushTimer()
+{
+  stopMouseFlushTimer();
+  flushPendingMouseMove();
+}
+
+void Server::flushPendingMouseMove()
+{
+  if (!m_mouseCoalescer.hasPending()) {
+    return;
+  }
+  const auto delta = m_mouseCoalescer.flush(monotonicNowUs());
+  stopMouseFlushTimer();
+  applyMouseMoveSecondary(delta.dx, delta.dy);
+}
+
 void Server::onMouseWheel(int32_t xDelta, int32_t yDelta)
 {
+  flushPendingMouseMove();
   LOG_VERBOSE("onMouseWheel %+d,%+d", xDelta, yDelta);
   assert(m_active != nullptr);
 

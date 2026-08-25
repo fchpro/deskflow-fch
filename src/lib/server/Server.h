@@ -16,6 +16,7 @@
 #include "deskflow/KeyTypes.h"
 #include "deskflow/MouseTypes.h"
 #include "server/Config.h"
+#include "server/MouseMoveCoalescer.h"
 
 #include <climits>
 #include <map>
@@ -334,6 +335,13 @@ private:
   void onMouseUp(ButtonID);
   bool onMouseMovePrimary(int32_t x, int32_t y);
   void onMouseMoveSecondary(int32_t dx, int32_t dy);
+  // apply an (already coalesced) secondary mouse delta: clamp/switch/send
+  void applyMouseMoveSecondary(int32_t dx, int32_t dy);
+  // send any coalesced mouse motion still pending (used before buttons, wheel, switches)
+  void flushPendingMouseMove();
+  void handleMouseFlushTimer();
+  void stopMouseFlushTimer();
+  static int64_t monotonicNowUs();
   void onMouseWheel(int32_t xDelta, int32_t yDelta);
 
   // add client to list and attach event handlers for client
@@ -457,6 +465,10 @@ private:
 
   // relative mouse move option
   bool m_relativeMoves = false;
+
+  // rate limiter for mouse moves sent to clients (fork customization)
+  MouseMoveCoalescer m_mouseCoalescer{0};
+  EventQueueTimer *m_mouseFlushTimer = nullptr;
 
   // flag whether or not we have broadcasting enabled and the screens to
   // which we should send broadcasted keys.
