@@ -49,8 +49,12 @@ add_library(${target} STATIC
   config/ServerConfig.h
   core/CoreProcess.cpp
   core/CoreProcess.h
+  core/ForegroundAppMonitor.cpp
+  core/ForegroundAppMonitor.h
   core/NetworkMonitor.cpp
   core/NetworkMonitor.h
+  core/ProcessList.cpp
+  core/ProcessList.h
   dialogs/AboutDialog.cpp
   dialogs/AboutDialog.h
   dialogs/AboutDialog.ui
@@ -60,6 +64,8 @@ add_library(${target} STATIC
   dialogs/ClientConfigDialog.h
   dialogs/ClientConfigDialog.cpp
   dialogs/ClientConfigDialog.ui
+  dialogs/ExcludedAppsDialog.cpp
+  dialogs/ExcludedAppsDialog.h
   dialogs/FingerprintDialog.cpp
   dialogs/FingerprintDialog.h
   dialogs/HelpDialog.cpp

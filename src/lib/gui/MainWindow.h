@@ -30,6 +30,7 @@ class QMenu;
 class QLocalServer;
 
 class DeskflowApplication;
+class ForegroundAppMonitor;
 class LogDock;
 class StatusBar;
 
@@ -98,6 +99,8 @@ private:
   void openAboutDialog();
   void openGetNewVersionUrl() const;
   void openSettings();
+  void openExcludedApps();
+  void foregroundAppChanged(const QString &exe, const QString &title, bool excluded);
   void startCore();
   void stopCore();
   bool saveServerConfig();
@@ -205,6 +208,7 @@ private:
 
   // Network monitoring
   NetworkMonitor *m_networkMonitor = nullptr;
+  ForegroundAppMonitor *m_foregroundMonitor = nullptr;
   QString m_currentIpAddress;
 
   // Server IP strategy optimization

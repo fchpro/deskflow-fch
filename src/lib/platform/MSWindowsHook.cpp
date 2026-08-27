@@ -11,6 +11,7 @@
 #include "deskflow/ScreenException.h"
 
 #include <cstring>
+#include <atomic>
 #include <mutex>
 
 #ifndef WM_MOUSEHWHEEL
@@ -42,6 +43,12 @@ static std::mutex g_keyStateMutex;
 static DWORD g_hookThread = 0;
 static bool g_fakeServerInput = false;
 static BOOL g_isPrimary = TRUE;
+
+// excluded-app guard: foreground pids that must never trigger a jump
+constexpr size_t kMaxExcludedPids = 64;
+static DWORD g_excludedPids[kMaxExcludedPids] = {0};
+static std::atomic<size_t> g_excludedPidCount = 0;
+static std::mutex g_excludedPidMutex;
 
 MSWindowsHook::~MSWindowsHook()
 {
@@ -145,6 +152,50 @@ void MSWindowsHook::setMode(EHookMode mode)
     return;
   }
   g_mode = mode;
+}
+
+EHookMode MSWindowsHook::getMode() const
+{
+  return g_mode;
+}
+
+void MSWindowsHook::setExcludedPids(const DWORD *pids, size_t count)
+{
+  std::lock_guard<std::mutex> lock(g_excludedPidMutex);
+  const size_t n = (count > kMaxExcludedPids) ? kMaxExcludedPids : count;
+  g_excludedPidCount = 0;
+  for (size_t i = 0; i < n; ++i) {
+    g_excludedPids[i] = pids[i];
+  }
+  g_excludedPidCount = n;
+}
+
+bool MSWindowsHook::isPidExcluded(DWORD pid)
+{
+  if (pid == 0) {
+    return false;
+  }
+  const size_t n = g_excludedPidCount;
+  for (size_t i = 0; i < n; ++i) {
+    if (g_excludedPids[i] == pid) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool MSWindowsHook::isForegroundExcluded()
+{
+  if (g_excludedPidCount == 0) {
+    return false;
+  }
+  const HWND hwnd = GetForegroundWindow();
+  if (hwnd == nullptr) {
+    return false;
+  }
+  DWORD pid = 0;
+  GetWindowThreadProcessId(hwnd, &pid);
+  return isPidExcluded(pid);
 }
 
 bool MSWindowsHook::getPhysicalKeyState(BYTE keys[256])
@@ -540,6 +591,13 @@ static bool mouseHookHandler(WPARAM wParam, int32_t x, int32_t y, int32_t data)
       PostThreadMessage(g_threadID, DESKFLOW_MSG_MOUSE_MOVE, x, y);
       return true;
     } else if (g_mode == kHOOK_WATCH_JUMP_ZONE) {
+      // excluded-app guard: an excluded process owns the foreground, so
+      // never watch the jump zone regardless of what the screen thread
+      // believes; pass the event through untouched.
+      if (MSWindowsHook::isForegroundExcluded()) {
+        return false;
+      }
+
       // low level hooks can report bogus mouse positions that are
       // outside of the screen.  jeez.  naturally we end up getting
       // fake motion in the other direction to get the position back

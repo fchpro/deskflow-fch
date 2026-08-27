@@ -19,4 +19,12 @@ private Q_SLOTS:
   void isExcludedRejectsPartialName();
   void processImageBaseNameResolvesOwnProcess();
   void processImageBaseNameFailsForBadPid();
+  void findExcludedPidsFindsOwnProcess();
+  void findExcludedPidsEmptyForUnknownApp();
+  void deciderPausesImmediately();
+  void deciderIgnoresBriefFocusFlicker();
+  void deciderResumesAfterStableNonExcluded();
+  void deciderUnknownForegroundKeepsState();
+  void deciderUnknownResetsResumeTimer();
+  void watcherStartupDetectsForeground();
 };

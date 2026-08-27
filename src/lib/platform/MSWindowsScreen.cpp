@@ -131,7 +131,12 @@ MSWindowsScreen::MSWindowsScreen(bool isPrimary, bool useHooks, IEventQueue *eve
         m_pauseToast = new MSWindowsPauseToast();
         m_foregroundWatcher = new MSWindowsForegroundWatcher(
             apps, [this](bool excluded, const std::wstring &exeName) { handleExcludedAppChange(excluded, exeName); },
-            [](const std::string &msg) { LOG_INFO("%s", msg.c_str()); }
+            [](const std::string &msg) { LOG_INFO("%s", msg.c_str()); },
+            [this](const std::vector<DWORD> &pids) {
+              // hook-level guard: the low-level mouse hook refuses to watch
+              // the jump zone while one of these pids owns the foreground
+              m_hook.setExcludedPids(pids.data(), pids.size());
+            }
         );
         m_excludedAppActive = m_foregroundWatcher->isForegroundExcluded();
       }
@@ -1265,6 +1270,13 @@ bool MSWindowsScreen::onMouseMove(int32_t mx, int32_t my)
   saveMousePosition(mx, my);
 
   if (m_isOnScreen) {
+    // excluded-app guard: never report motion to the server (and so never
+    // let it switch screens) while an excluded app owns the foreground,
+    // even if the hook mode was not (yet) set to kHOOK_DISABLE.
+    if (m_isPrimary && isExcludedAppForeground()) {
+      return true;
+    }
+
     // motion on primary screen
     sendEvent(EventTypes::PrimaryScreenMotionOnPrimary, MotionInfo::alloc(m_xCursor, m_yCursor));
   } else {
@@ -1475,6 +1487,24 @@ void MSWindowsScreen::handleFixes()
   if (m_keyState->didGroupsChange()) {
     updateKeys();
   }
+
+  // excluded-app watchdog: re-assert the paused hook mode once a second in
+  // case anything else switched it back while an excluded app is in front
+  if (m_isPrimary && m_isOnScreen && m_foregroundWatcher != nullptr) {
+    m_foregroundWatcher->checkForegroundNow();
+    if (m_excludedAppActive && m_hook.getMode() != kHOOK_DISABLE) {
+      LOG_WARN("excluded app is foreground but hooks were active, pausing input sharing again");
+      m_hook.setMode(kHOOK_DISABLE);
+    }
+  }
+}
+
+bool MSWindowsScreen::isExcludedAppForeground() const
+{
+  if (m_excludedAppActive) {
+    return true;
+  }
+  return m_foregroundWatcher != nullptr && m_foregroundWatcher->isForegroundPidExcluded();
 }
 
 void MSWindowsScreen::handleExcludedAppChange(bool excluded, const std::wstring &exeName)

@@ -6,12 +6,32 @@ Personal customizations on top of upstream Deskflow. Keep this list current; rea
 
 **Goal**: while an excluded app (fps games) owns the foreground window, Deskflow's hooks are disabled so input stays fully local; resumes instantly when focus leaves the app. Measured event→callback latency: ~0.4–1.5 ms (target <20 ms).
 
+**Root cause of the 2026-08 "still shares while bf6 is in front" bug** (from `deskflow.log`): `bf6.exe` pause followed 13 ms later by an `explorer.exe` resume — the foreground flickers to explorer during the fullscreen mode switch, and the game regaining focus fires no further `EVENT_SYSTEM_FOREGROUND`. A single event hook can therefore end in the wrong state. Fixed with redundant layers (all active simultaneously):
+
+| Layer | Where | Mechanism |
+|---|---|---|
+| 1 | `MSWindowsForegroundWatcher` | WinEvent hooks: `EVENT_SYSTEM_FOREGROUND..EVENT_SYSTEM_MINIMIZEEND` (foreground, alt-tab switch, minimize) + `EVENT_OBJECT_FOCUS`; every event re-evaluates `GetForegroundWindow()` (event hwnd ignored). |
+| 2 | `MSWindowsForegroundWatcher` | Poll timer (`kPollIntervalMs` = 100 ms, message-only window `WM_TIMER`) re-evaluates the foreground independent of events. |
+| 3 | `MSWindowsForegroundWatcher` | Toolhelp snapshot every `kPidRefreshMs` = 1000 ms lists pids of running excluded exes; a foreground pid in the set is excluded with no `OpenProcess` (anti-cheat denies it). Pid→name cache cleared on every refresh (pid reuse). |
+| 4 | `ExclusionDecider` (pure) | Pause immediate; resume only after the foreground stays non-excluded for `kResumeDelayMs` = 300 ms; an unresolvable foreground never changes state and resets the resume timer. |
+| 5 | `MSWindowsHook` | `setExcludedPids()` (max 64) — in `kHOOK_WATCH_JUMP_ZONE` the low-level mouse hook passes events through untouched when the foreground pid is excluded (`isForegroundExcluded()`), regardless of the screen thread state. |
+| 6 | `MSWindowsScreen::onMouseMove` | Motion on the primary screen is not reported to the server (`isExcludedAppForeground()`: watcher state or live pid check) → the server can never jump screens. |
+| 7 | `MSWindowsScreen::handleFixes` (1 s) | Watchdog: `checkForegroundNow()` + re-asserts `kHOOK_DISABLE` (logs a warning) if hooks are active while paused. |
+
 **Files**:
-- `src/lib/platform/MSWindowsForegroundWatcher.{h,cpp}` — new. `SetWinEventHook(EVENT_SYSTEM_FOREGROUND)` (out-of-context, delivered on the screen thread's message pump). Resolves foreground pid → exe base name (`QueryFullProcessImageNameW`, toolhelp-snapshot fallback for anti-cheat-protected processes like bf6). Case-insensitive match; entries without extension match the exe stem. Logger injected (no project deps) so the file compiles standalone.
-- `src/lib/platform/MSWindowsScreen.{h,cpp}` — modified. Primary screen creates the watcher when the list is non-empty; callback `handleExcludedAppChange` sets `m_hook.setMode(kHOOK_DISABLE)` while excluded and on-screen, restores `kHOOK_WATCH_JUMP_ZONE` on resume. `enable()`/`enter()` respect `m_excludedAppActive`.
+- `src/lib/platform/MSWindowsForegroundWatcher.{h,cpp}` — new. Layers 1–4 above plus `ExclusionDecider`. Resolves pid → exe base name (`QueryFullProcessImageNameW`, toolhelp fallback). Case-insensitive match; entries without extension match the exe stem. Logger injected (no project deps). Log lines carry the trigger source: `(foreground event)`, `(window event)`, `(poll)`, `(startup)`, `(manual)`.
+- `src/lib/platform/MSWindowsHook.{h,cpp}` — modified. Layer 5 (`setExcludedPids`, `isPidExcluded`, `isForegroundExcluded`, `getMode`).
+- `src/lib/platform/MSWindowsScreen.{h,cpp}` — modified. Primary screen creates the watcher when the list is non-empty; callback `handleExcludedAppChange` sets `m_hook.setMode(kHOOK_DISABLE)` while excluded and on-screen, restores `kHOOK_WATCH_JUMP_ZONE` on resume. `enable()`/`enter()` respect `m_excludedAppActive`. Layers 6–7.
 - `src/lib/common/Settings.h` — modified. New key `server/excludedApps` (`Settings::Server::ExcludedApps`, QStringList) + validKeys entry.
-- `src/lib/platform/CMakeLists.txt`, `src/unittests/platform/CMakeLists.txt` — new sources/test registered.
-- `src/unittests/platform/MSWindowsForegroundWatcherTests.{h,cpp}` — new Qt Test for the pure helpers.
+- `src/lib/platform/CMakeLists.txt`, `src/unittests/platform/CMakeLists.txt` — new sources/tests registered.
+- `src/unittests/platform/MSWindowsForegroundWatcherTests.{h,cpp}` — pure helpers, `findExcludedPids`, `ExclusionDecider` (incl. the 13 ms flicker regression), live watcher startup detection.
+- `src/unittests/platform/MSWindowsHookTests.{h,cpp}` — excluded pid list / foreground guard.
+
+**GUI (fork additions, `src/lib/gui`)**:
+- `core/ForegroundAppMonitor.{h,cpp}` — 500 ms poll of the foreground exe/title in the GUI process; feeds the main window label `lblForegroundApp` ("Foreground: bf6.exe (excluded, sharing paused)", bold when excluded). Windows only; hidden elsewhere.
+- `core/ProcessList.{h,cpp}` — running process enumeration (toolhelp + `EnumWindows` titles) and pure `dedupeByExe` / `filter` / `sorted` / `displayText` helpers.
+- `dialogs/ExcludedAppsDialog.{h,cpp}` — opened by the `Excluded Apps` button next to `Configure Server`. Left: current list + Remove. Right: running processes ("exe - window title", titled first) with a search box; Add / double-click adds the exe name. OK writes `server/excludedApps`, flushes the conf, restarts the core if running.
+- Tests: `src/unittests/gui/core/ProcessListTests`, `src/unittests/gui/ExcludedAppsDialogTests` (structure, search, add/remove, monitor matching).
 
 **Configuration** (edit as the app list grows):
 `%APPDATA%\Deskflow\Deskflow.conf`:

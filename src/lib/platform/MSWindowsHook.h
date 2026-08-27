@@ -62,6 +62,19 @@ public:
 
   void setMode(EHookMode mode);
 
+  EHookMode getMode() const;
+
+  //! Pids whose foreground ownership must block jump-zone switching, even
+  //! when the mode is kHOOK_WATCH_JUMP_ZONE (independent last line of
+  //! defence for the excluded-app feature; max 64 pids kept).
+  static void setExcludedPids(const DWORD *pids, size_t count);
+
+  //! True when `pid` is in the excluded pid list
+  static bool isPidExcluded(DWORD pid);
+
+  //! True when the current foreground window belongs to an excluded pid
+  static bool isForegroundExcluded();
+
   //! Copy the hook's physical key state; false until it has observed an event.
   static bool getPhysicalKeyState(BYTE keys[256]);
 

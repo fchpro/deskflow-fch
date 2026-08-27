@@ -199,6 +199,10 @@ private: // HACK
   // foreground window (primary screen only)
   void handleExcludedAppChange(bool excluded, const std::wstring &exeName);
 
+  // true while an excluded app owns the foreground (state from the watcher
+  // or a live pid check)
+  bool isExcludedAppForeground() const;
+
   // enable/disable special key combinations so we can catch/pass them
   void enableSpecialKeys(bool) const;
 

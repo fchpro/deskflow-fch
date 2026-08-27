@@ -15,6 +15,7 @@
 
 #include "dialogs/AboutDialog.h"
 #include "dialogs/ClientConfigDialog.h"
+#include "dialogs/ExcludedAppsDialog.h"
 #include "dialogs/FingerprintDialog.h"
 #include "dialogs/HelpDialog.h"
 #include "dialogs/ServerConfigDialog.h"
@@ -27,6 +28,7 @@
 #include "gui/Messages.h"
 #include "gui/TlsUtility.h"
 #include "gui/core/CoreProcess.h"
+#include "gui/core/ForegroundAppMonitor.h"
 #include "gui/ipc/DaemonIpcClient.h"
 #include "gui/widgets/LogDock.h"
 #include "net/FingerprintDatabase.h"
@@ -49,6 +51,7 @@
 #include <QScreen>
 #include <QScrollBar>
 
+#include <algorithm>
 #include <memory>
 
 #if defined(Q_OS_MACOS)
@@ -213,6 +216,12 @@ void MainWindow::setupControls()
   ui->serverOptions->setVisible(false);
   ui->clientOptions->setVisible(false);
 
+  // excluded apps (game exclusion) controls: windows server only
+  ui->btnExcludedApps->setVisible(ForegroundAppMonitor::isSupported());
+  ui->lblForegroundApp->setVisible(ForegroundAppMonitor::isSupported());
+  m_foregroundMonitor = new ForegroundAppMonitor(this);
+  connect(m_foregroundMonitor, &ForegroundAppMonitor::changed, this, &MainWindow::foregroundAppChanged);
+
   const auto coreMode = Settings::value(Settings::Core::CoreMode).value<Settings::CoreMode>();
   ui->rbModeClient->setChecked(coreMode == Settings::CoreMode::Client);
   ui->rbModeServer->setChecked(coreMode == Settings::CoreMode::Server);
@@ -242,6 +251,7 @@ void MainWindow::connectSlots()
 {
   connect(Settings::instance(), &Settings::serverSettingsChanged, this, &MainWindow::serverConfigSaving);
   connect(Settings::instance(), &Settings::settingsChanged, this, &MainWindow::settingsChanged);
+  connect(ui->btnExcludedApps, &QPushButton::clicked, this, &MainWindow::openExcludedApps);
 
   connect(&m_coreProcess, &CoreProcess::error, this, &MainWindow::coreProcessError);
   connect(&m_coreProcess, &CoreProcess::logLine, this, &MainWindow::handleLogLine);
@@ -483,6 +493,41 @@ void MainWindow::openSettings()
   }
 }
 
+void MainWindow::openExcludedApps()
+{
+  ExcludedAppsDialog dialog(this);
+  if (dialog.exec() != QDialog::Accepted) {
+    return;
+  }
+  const auto apps = dialog.excludedApps();
+  if (apps == Settings::value(Settings::Server::ExcludedApps).toStringList()) {
+    return;
+  }
+  Settings::setValue(Settings::Server::ExcludedApps, apps);
+  // the core reads the conf file on start, so flush before restarting it
+  Settings::save(false);
+  m_foregroundMonitor->poll();
+  if (m_coreProcess.isStarted()) {
+    m_coreProcess.restart();
+  }
+}
+
+void MainWindow::foregroundAppChanged(const QString &exe, const QString &title, bool excluded)
+{
+  QString text;
+  if (exe.isEmpty()) {
+    text = tr("Foreground: -");
+  } else if (excluded) {
+    text = tr("Foreground: %1 (excluded, sharing paused)").arg(exe);
+  } else {
+    text = tr("Foreground: %1").arg(exe);
+  }
+  ui->lblForegroundApp->setToolTip(title.isEmpty() ? exe : QStringLiteral("%1 - %2").arg(exe, title));
+  const int width = std::max(120, ui->lblForegroundApp->width() - 4);
+  ui->lblForegroundApp->setText(ui->lblForegroundApp->fontMetrics().elidedText(text, Qt::ElideRight, width));
+  ui->lblForegroundApp->setStyleSheet(excluded ? QStringLiteral("font-weight: bold;") : QString());
+}
+
 void MainWindow::resetCore()
 {
   m_coreProcess.restart();
@@ -541,8 +586,10 @@ void MainWindow::updateModeControls()
 
   if (isServer) {
     m_networkMonitor->startMonitoring();
+    m_foregroundMonitor->start();
   } else {
     m_networkMonitor->stopMonitoring();
+    m_foregroundMonitor->stop();
   }
 
   if (isServer || isClient)

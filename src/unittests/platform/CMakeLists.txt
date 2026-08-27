@@ -17,6 +17,13 @@ if (WIN32)
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/platform"
   )
   create_test(
+    NAME MSWindowsHookTests
+    DEPENDS platform
+    LIBS base arch app
+    SOURCE MSWindowsHookTests.cpp
+    WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/platform"
+  )
+  create_test(
     NAME MSWindowsPauseToastTests
     DEPENDS platform
     LIBS base arch
