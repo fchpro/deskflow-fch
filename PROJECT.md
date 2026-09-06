@@ -76,5 +76,6 @@ Unit tests (Qt Test): 31 test binaries (25 upstream + 6 fork: MSWindowsForegroun
 - Version is derived from git describe; fallback version is hardcoded in root `CMakeLists.txt`.
 - Fork policy: never commit personal customizations to `master`; that branch must stay clean for upstream syncs.
 - Mouse send-rate limiter (server): `MouseMoveCoalescer`, setting `server/mouseSendRateHz` (default 250, 0 = off); see `docs/project/customizations.md`.
+- Clipboard image sharing: default `server/clipboardSize` raised 3 -> 128 MiB (bitmaps are uncompressed DIBs; screenshots exceeded 3 MiB). Clients enforce receive limit from their own local setting; see `docs/project/customizations.md` section 4.
 - Game/app exclusion feature (Windows server only): see `docs/project/customizations.md` — settings key `server/excludedApps`, watcher `MSWindowsForegroundWatcher` (events + 100 ms poll + pid snapshot + 300 ms resume debounce), hook-level pid guard, motion drop in `MSWindowsScreen`, 1 s watchdog. GUI: foreground label + `Excluded Apps` dialog (process picker with search) in the main window.
 - All git mutations (branching, merging, pulling upstream) are performed by the user, not the LLM.

@@ -77,3 +77,19 @@ Small silent popup (bottom-right of work area, ~1 s, no sound, never steals focu
 [server]
 mouseSendRateHz=250
 ```
+
+## 4. Clipboard image sharing — larger default size limit
+
+**Problem**: image clipboard sync silently failed. Bitmaps travel as uncompressed 32bpp DIBs, so any screenshot (1685x1116 = 7.5 MB, 2560x1440 = 14.7 MB) exceeded the upstream default limit of 3 MiB. Log showed `WARNING: not sending clipboard data, exceeds limit: 3072 KB`.
+
+**Solution**: raise the default `server/clipboardSize` from 3 to 128 MiB (`src/lib/common/Settings.cpp`, `ServerConfigDialog.ui` default). No protocol change; stock clients stay compatible. The limit is applied on the server (send + receive) and pushed to clients as their send limit.
+
+**Regression test**: `SettingsTests::defaultClipboardSizeFitsScreenshot` (default limit must exceed a 2560x1440 32bpp DIB).
+
+**Configuration** (`%APPDATA%\Deskflow\Deskflow.conf`, restart core after editing):
+```ini
+[server]
+clipboardSize=128
+```
+
+**Limitation**: a client enforces its *receive* limit from its own local `server/clipboardSize` setting (default 3 MiB on stock builds since July 2026). For PC -> Mac images, set `clipboardSize=128` under `[server]` in the Mac's `~/Library/Deskflow/Deskflow.conf` and restart Deskflow there. Mac -> PC needs no Mac change.

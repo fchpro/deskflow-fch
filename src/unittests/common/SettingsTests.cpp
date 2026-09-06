@@ -102,3 +102,13 @@ void SettingsTests::checkCleanScreenName_LongName()
 }
 
 QTEST_MAIN(SettingsTests)
+
+void SettingsTests::defaultClipboardSizeFitsScreenshot()
+{
+  // Regression: bitmaps travel as uncompressed 32bpp DIBs; a 2560x1440 screenshot
+  // is ~14 MiB, which the old 3 MiB default rejected ("exceeds limit").
+  constexpr quint64 kDibHeaderBytes = 40;
+  constexpr quint64 kScreenshotBytes = kDibHeaderBytes + 2560ULL * 1440ULL * 4ULL;
+  const auto limitBytes = Settings::defaultValue(Settings::Server::ClipboardSize).toULongLong() * 1024 * 1024;
+  QVERIFY2(limitBytes > kScreenshotBytes, "default clipboardSize is too small for a 1440p screenshot");
+}
