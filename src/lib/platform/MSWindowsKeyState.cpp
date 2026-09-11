@@ -789,6 +789,20 @@ bool MSWindowsKeyState::fakeCtrlAltDel()
   return true;
 }
 
+KeyModifierSides MSWindowsKeyState::getModifierSides() const
+{
+  KeyModifierSides sides;
+  if (isKeyDown(virtualKeyToButton(VK_LCONTROL)))
+    sides.left |= KeyModifierControl;
+  if (isKeyDown(virtualKeyToButton(VK_RCONTROL)))
+    sides.right |= KeyModifierControl;
+  if (isKeyDown(virtualKeyToButton(VK_LWIN)))
+    sides.left |= KeyModifierSuper;
+  if (isKeyDown(virtualKeyToButton(VK_RWIN)))
+    sides.right |= KeyModifierSuper;
+  return sides;
+}
+
 KeyModifierMask MSWindowsKeyState::pollActiveModifiers() const
 {
   KeyModifierMask state = 0;

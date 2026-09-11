@@ -111,6 +111,7 @@ public:
   key.
   */
   UINT mapKeyToVirtualKey(KeyID key) const;
+  KeyModifierSides getModifierSides() const override;
 
   //! Map virtual key and button to KeyID
   /*!

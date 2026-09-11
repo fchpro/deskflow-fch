@@ -17,6 +17,7 @@
 #include "deskflow/MouseTypes.h"
 #include "server/Config.h"
 #include "server/MouseMoveCoalescer.h"
+#include "server/LeftModifierSwap.h"
 
 #include <climits>
 #include <map>
@@ -328,9 +329,9 @@ private:
   // event processing
   void onClipboardChanged(const BaseClientProxy *sender, ClipboardID id, uint32_t seqNum);
   void onScreensaver(bool activated);
-  void onKeyDown(KeyID, KeyModifierMask, KeyButton, const std::string &, const char *screens);
-  void onKeyUp(KeyID, KeyModifierMask, KeyButton, const char *screens);
-  void onKeyRepeat(KeyID, KeyModifierMask, int32_t, KeyButton, const std::string &);
+  void onKeyDown(KeyID, KeyModifierMask, KeyButton, const std::string &, const char *screens, KeyModifierSides);
+  void onKeyUp(KeyID, KeyModifierMask, KeyButton, const char *screens, KeyModifierSides);
+  void onKeyRepeat(KeyID, KeyModifierMask, int32_t, KeyButton, const std::string &, KeyModifierSides);
   void onMouseDown(ButtonID);
   void onMouseUp(ButtonID);
   bool onMouseMovePrimary(int32_t x, int32_t y);
@@ -468,6 +469,7 @@ private:
 
   // rate limiter for mouse moves sent to clients (fork customization)
   MouseMoveCoalescer m_mouseCoalescer{0};
+  LeftModifierSwap m_leftModifierSwap;
   EventQueueTimer *m_mouseFlushTimer = nullptr;
 
   // flag whether or not we have broadcasting enabled and the screens to

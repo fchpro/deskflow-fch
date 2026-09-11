@@ -707,20 +707,26 @@ void KeyState::sendKeyEvent(
 )
 {
   using enum EventTypes;
+  const auto sides = getModifierSides();
+  const auto info = [&](int32_t repeats) {
+    auto *eventInfo = KeyInfo::alloc(key, mask, button, repeats);
+    eventInfo->m_modifierSides = sides;
+    return eventInfo;
+  };
   if (m_keyMap.isHalfDuplex(key, button)) {
     if (isAutoRepeat) {
       // ignore auto-repeat on half-duplex keys
     } else {
-      m_events->addEvent(Event(KeyStateKeyDown, target, KeyInfo::alloc(key, mask, button, 1)));
-      m_events->addEvent(Event(KeyStateKeyUp, target, KeyInfo::alloc(key, mask, button, 1)));
+      m_events->addEvent(Event(KeyStateKeyDown, target, info(1)));
+      m_events->addEvent(Event(KeyStateKeyUp, target, info(1)));
     }
   } else {
     if (isAutoRepeat) {
-      m_events->addEvent(Event(KeyStateKeyRepeat, target, KeyInfo::alloc(key, mask, button, count)));
+      m_events->addEvent(Event(KeyStateKeyRepeat, target, info(count)));
     } else if (press) {
-      m_events->addEvent(Event(KeyStateKeyDown, target, KeyInfo::alloc(key, mask, button, 1)));
+      m_events->addEvent(Event(KeyStateKeyDown, target, info(1)));
     } else {
-      m_events->addEvent(Event(KeyStateKeyUp, target, KeyInfo::alloc(key, mask, button, 1)));
+      m_events->addEvent(Event(KeyStateKeyUp, target, info(1)));
     }
   }
 }

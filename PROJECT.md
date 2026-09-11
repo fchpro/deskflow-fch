@@ -10,7 +10,7 @@ Personal fork of [Deskflow](https://github.com/deskflow/deskflow), an open-sourc
 - CMake (>= 3.24)
 - Qt 6 (GUI)
 - vcpkg optional on Windows (`VCPKG_QT` option)
-- Google Test (unit tests in `src/unittests`)
+- Qt Test (unit tests in `src/unittests`)
 - Platform backends: Windows, macOS, Linux (X11/Wayland)
 
 Planned: none yet.
@@ -22,7 +22,7 @@ Planned: none yet.
 - `src/apps/deskflow-daemon` — background daemon
 - `src/apps/deskflow-gui` — Qt GUI app
 - `src/lib/` — libraries: `arch` (OS abstraction), `base`, `client`, `server`, `net`, `platform` (per-OS input/screen), `deskflow` (core logic), `gui`, `common`, `io`, `mt`
-- `src/unittests/` — Google Test unit tests mirroring lib layout
+- `src/unittests/` — Qt Test unit tests mirroring lib layout
 - `cmake/` — CMake modules
 - `deploy/` — packaging/installer resources
 - `docs/` — upstream docs (`docs/dev/build.md` = build instructions)
@@ -52,7 +52,7 @@ Planned: none yet.
 
 ## Unfinished Tasks and Worklists
 
-None
+- `docs/tasks/left-modifier-swap-verification.md` — Mac-side visual verification after enabling the left Ctrl/Windows swap.
 
 ## Quick Check
 
@@ -68,7 +68,7 @@ Full build (fullcheck equivalent, minutes): `cmake --build build -j12` from the 
 
 ## Master Tests
 
-Unit tests (Qt Test): 31 test binaries (25 upstream + 6 fork: MSWindowsForegroundWatcherTests, MSWindowsHookTests, MSWindowsPauseToastTests, MouseMoveCoalescerTests, ProcessListTests, ExcludedAppsDialogTests) under `src/unittests`, run via `ctest` from `build\src\unittests` (see Quick Check for the required PATH). No external master-test project.
+Unit tests (Qt Test): 32 test binaries (25 upstream + 7 fork: MSWindowsForegroundWatcherTests, MSWindowsHookTests, MSWindowsPauseToastTests, MouseMoveCoalescerTests, ProcessListTests, ExcludedAppsDialogTests, LeftModifierSwapTests) under `src/unittests`, run via `ctest` from `build\src\unittests` (see Quick Check for the required PATH). No external master-test project.
 
 ## Architecture and Workflow Notes
 
@@ -78,4 +78,5 @@ Unit tests (Qt Test): 31 test binaries (25 upstream + 6 fork: MSWindowsForegroun
 - Mouse send-rate limiter (server): `MouseMoveCoalescer`, setting `server/mouseSendRateHz` (default 250, 0 = off); see `docs/project/customizations.md`.
 - Clipboard image sharing: default `server/clipboardSize` raised 3 -> 128 MiB (bitmaps are uncompressed DIBs; screenshots exceeded 3 MiB). Clients enforce receive limit from their own local setting; see `docs/project/customizations.md` section 4.
 - Game/app exclusion feature (Windows server only): see `docs/project/customizations.md` — settings key `server/excludedApps`, watcher `MSWindowsForegroundWatcher` (events + 100 ms poll + pid snapshot + 300 ms resume debounce), hook-level pid guard, motion drop in `MSWindowsScreen`, 1 s watchdog. GUI: foreground label + `Excluded Apps` dialog (process picker with search) in the main window.
+- Left Ctrl/Windows swap (Windows server): `server/leftCtrlSuperSwapScreen` selects one canonical client name; local/right-side keys remain unchanged. Per-event physical modifier snapshots preserve shortcuts without changing the protocol. See `docs/project/customizations.md` section 5.
 - All git mutations (branching, merging, pulling upstream) are performed by the user, not the LLM.

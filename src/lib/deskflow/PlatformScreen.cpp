@@ -68,6 +68,11 @@ KeyModifierMask PlatformScreen::getActiveModifiers() const
   return getKeyState()->getActiveModifiers();
 }
 
+KeyModifierSides PlatformScreen::getModifierSides() const
+{
+  return getKeyState()->getModifierSides();
+}
+
 KeyModifierMask PlatformScreen::pollActiveModifiers() const
 {
   return getKeyState()->pollActiveModifiers();

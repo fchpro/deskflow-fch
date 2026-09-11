@@ -117,6 +117,7 @@ public:
     inline static const auto GridHeight = QStringLiteral("server/gridHeight");
     inline static const auto GridWidth = QStringLiteral("server/gridWidth");
     inline static const auto Heartbeat = QStringLiteral("server/heartbeat");
+    inline static const auto LeftCtrlSuperSwapScreen = QStringLiteral("server/leftCtrlSuperSwapScreen");
     inline static const auto MouseSendRateHz = QStringLiteral("server/mouseSendRateHz");
     inline static const auto Protocol = QStringLiteral("server/protocol");
     inline static const auto RelativeMouseMoves = QStringLiteral("server/relativeMouseMoves");
@@ -315,6 +316,7 @@ private:
     , Server::GridHeight
     , Server::GridWidth
     , Server::Heartbeat
+    , Server::LeftCtrlSuperSwapScreen
     , Server::MouseSendRateHz
     , Server::Protocol
     , Server::RelativeMouseMoves

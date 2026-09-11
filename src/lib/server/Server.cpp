@@ -74,6 +74,13 @@ Server::Server(ServerConfig &config, PrimaryClient *primaryClient, deskflow::Scr
     LOG_INFO("mouse send rate limited to %d Hz", hz);
   }
 
+#ifdef _WIN32
+  const auto swapScreen = Settings::value(Settings::Server::LeftCtrlSuperSwapScreen).toString().toStdString();
+  m_leftModifierSwap = LeftModifierSwap(swapScreen);
+  if (!swapScreen.empty())
+    LOG_INFO("left Ctrl/Windows swap enabled for screen: %s", swapScreen.c_str());
+#endif
+
   // install event handlers
   m_events->addHandler(EventTypes::Timer, this, [this](const auto &) { handleSwitchWaitTimeout(); });
   m_events->addHandler(EventTypes::KeyStateKeyDown, m_inputFilter, [this](const auto &e) { handleKeyDownEvent(e); });
@@ -489,7 +496,11 @@ void Server::switchScreen(BaseClientProxy *dst, int32_t x, int32_t y, bool forSc
     ++m_seqNum;
 
     // enter new screen
-    m_active->enter(x, y, m_seqNum, m_primaryClient->getToggleMask(), forScreensaver);
+    const auto enterMask = m_leftModifierSwap.map(
+        getName(m_active), m_active == m_primaryClient, kKeyNone, m_primaryClient->getToggleMask(),
+        m_screen->getPlatformScreen()->getModifierSides()
+    ).second;
+    m_active->enter(x, y, m_seqNum, enterMask, forScreensaver);
 
     if (m_enableClipboard) {
       // send the clipboard data to new active screen
@@ -1226,20 +1237,20 @@ void Server::handleKeyDownEvent(const Event &event)
 {
   const auto *info = static_cast<IPlatformScreen::KeyInfo *>(event.getData());
   auto lang = AppUtil::instance().getCurrentLanguageCode();
-  onKeyDown(info->m_key, info->m_mask, info->m_button, lang, info->m_screens.c_str());
+  onKeyDown(info->m_key, info->m_mask, info->m_button, lang, info->m_screens.c_str(), info->m_modifierSides);
 }
 
 void Server::handleKeyUpEvent(const Event &event)
 {
   auto *info = static_cast<IPlatformScreen::KeyInfo *>(event.getData());
-  onKeyUp(info->m_key, info->m_mask, info->m_button, info->m_screens.c_str());
+  onKeyUp(info->m_key, info->m_mask, info->m_button, info->m_screens.c_str(), info->m_modifierSides);
 }
 
 void Server::handleKeyRepeatEvent(const Event &event)
 {
   const auto *info = static_cast<IPlatformScreen::KeyInfo *>(event.getData());
   auto lang = AppUtil::instance().getCurrentLanguageCode();
-  onKeyRepeat(info->m_key, info->m_mask, info->m_count, info->m_button, lang);
+  onKeyRepeat(info->m_key, info->m_mask, info->m_count, info->m_button, lang, info->m_modifierSides);
 }
 
 void Server::handleButtonDownEvent(const Event &event)
@@ -1531,14 +1542,20 @@ void Server::onScreensaver(bool activated)
   }
 }
 
-void Server::onKeyDown(KeyID id, KeyModifierMask mask, KeyButton button, const std::string &lang, const char *screens)
+void Server::onKeyDown(
+    KeyID id, KeyModifierMask mask, KeyButton button, const std::string &lang, const char *screens,
+    KeyModifierSides sides
+)
 {
   LOG_VERBOSE("onKeyDown id=%d mask=0x%04x button=0x%04x lang=%s", id, mask, button, lang.c_str());
   assert(m_active != nullptr);
 
   // relay
   if (!m_keyboardBroadcasting && IKeyState::KeyInfo::isDefault(screens)) {
-    m_active->keyDown(id, mask, button, lang);
+    const auto [key, modifiers] = m_leftModifierSwap.map(
+        getName(m_active), m_active == m_primaryClient, id, mask, sides
+    );
+    m_active->keyDown(key, modifiers, button, lang);
   } else {
     if (!screens && m_keyboardBroadcasting) {
       screens = m_keyboardBroadcastingScreens.c_str();
@@ -1548,20 +1565,26 @@ void Server::onKeyDown(KeyID id, KeyModifierMask mask, KeyButton button, const s
     }
     for (ClientList::const_iterator index = m_clients.begin(); index != m_clients.end(); ++index) {
       if (IKeyState::KeyInfo::contains(screens, index->first)) {
-        index->second->keyDown(id, mask, button, lang);
+        const auto [key, modifiers] = m_leftModifierSwap.map(
+            index->first, index->second == m_primaryClient, id, mask, sides
+        );
+        index->second->keyDown(key, modifiers, button, lang);
       }
     }
   }
 }
 
-void Server::onKeyUp(KeyID id, KeyModifierMask mask, KeyButton button, const char *screens)
+void Server::onKeyUp(KeyID id, KeyModifierMask mask, KeyButton button, const char *screens, KeyModifierSides sides)
 {
   LOG_VERBOSE("onKeyUp id=%d mask=0x%04x button=0x%04x", id, mask, button);
   assert(m_active != nullptr);
 
   // relay
   if (!m_keyboardBroadcasting && IKeyState::KeyInfo::isDefault(screens)) {
-    m_active->keyUp(id, mask, button);
+    const auto [key, modifiers] = m_leftModifierSwap.map(
+        getName(m_active), m_active == m_primaryClient, id, mask, sides
+    );
+    m_active->keyUp(key, modifiers, button);
   } else {
     if (!screens && m_keyboardBroadcasting) {
       screens = m_keyboardBroadcastingScreens.c_str();
@@ -1571,13 +1594,18 @@ void Server::onKeyUp(KeyID id, KeyModifierMask mask, KeyButton button, const cha
     }
     for (ClientList::const_iterator index = m_clients.begin(); index != m_clients.end(); ++index) {
       if (IKeyState::KeyInfo::contains(screens, index->first)) {
-        index->second->keyUp(id, mask, button);
+        const auto [key, modifiers] = m_leftModifierSwap.map(
+            index->first, index->second == m_primaryClient, id, mask, sides
+        );
+        index->second->keyUp(key, modifiers, button);
       }
     }
   }
 }
 
-void Server::onKeyRepeat(KeyID id, KeyModifierMask mask, int32_t count, KeyButton button, const std::string &lang)
+void Server::onKeyRepeat(
+    KeyID id, KeyModifierMask mask, int32_t count, KeyButton button, const std::string &lang, KeyModifierSides sides
+)
 {
   LOG(
       (CLOG_VERBOSE "onKeyRepeat id=%d mask=0x%04x count=%d button=0x%04x lang=\"%s\"", id, mask, count, button,
@@ -1586,7 +1614,8 @@ void Server::onKeyRepeat(KeyID id, KeyModifierMask mask, int32_t count, KeyButto
   assert(m_active != nullptr);
 
   // relay
-  m_active->keyRepeat(id, mask, count, button, lang);
+  const auto [key, modifiers] = m_leftModifierSwap.map(getName(m_active), m_active == m_primaryClient, id, mask, sides);
+  m_active->keyRepeat(key, modifiers, count, button, lang);
 }
 
 void Server::onMouseDown(ButtonID id)

@@ -43,6 +43,7 @@ public:
   public:
     KeyID m_key;
     KeyModifierMask m_mask;
+    KeyModifierSides m_modifierSides;
     KeyButton m_button;
     int32_t m_count;
     std::string m_screens;
@@ -149,6 +150,9 @@ public:
   operating system.
   */
   virtual KeyModifierMask pollActiveModifiers() const = 0;
+
+  // Sides are populated by Windows; other platforms do not use the server swap.
+  virtual KeyModifierSides getModifierSides() const { return {}; }
 
   //! Get the active keyboard layout from OS
   /*!

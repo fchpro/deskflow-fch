@@ -93,3 +93,23 @@ clipboardSize=128
 ```
 
 **Limitation**: a client enforces its *receive* limit from its own local `server/clipboardSize` setting (default 3 MiB on stock builds since July 2026). For PC -> Mac images, set `clipboardSize=128` under `[server]` in the Mac's `~/Library/Deskflow/Deskflow.conf` and restart Deskflow there. Mac -> PC needs no Mac change.
+
+## 5. Left Ctrl / Windows swap for one client (Windows server only)
+
+**Behavior**: left Ctrl sends Mac Command; left Windows sends Mac Control. Right Ctrl/Windows, local Windows input, and other clients retain their original mappings.
+
+**Configuration** (`%APPDATA%\Deskflow\Deskflow.conf`, restart GUI/core after editing):
+```ini
+[server]
+leftCtrlSuperSwapScreen=Fakhreddines-MacBook-Pro.local
+```
+Empty/unset disables the swap. Use the client's canonical screen name. Keep the client's existing Ctrl/Super modifier mapping at its default; an additional client-side swap would remap the output again. Renaming the Mac requires updating this setting. No Mac build or protocol change is needed.
+
+**Implementation**:
+- `server/LeftModifierSwap.h` maps key IDs and shortcut masks per recipient, including broadcast recipients and the modifier mask sent on screen entry. The primary is always excluded.
+- `MSWindowsKeyState::getModifierSides()` reads Deskflow's tracked physical keys, because suppressed Windows-key events cannot be recovered reliably from `GetAsyncKeyState`.
+- `KeyState::sendKeyEvent` captures Ctrl/Super sides into `IKeyState::KeyInfo`; copies retain the snapshot. The server uses the event's snapshot rather than later keyboard state. Mixed left/right modifiers and AltGr-suppressed masks are preserved.
+- `PlatformScreen` forwards the side query for screen entry. The setting is enabled only by Windows servers; other platforms retain existing behavior.
+- New tests: `LeftModifierSwapTests` covers mapping/scope, all 16 left/right modifier combinations, event copies, and Windows down/up/repeat capture after physical state changes. Run from the documented test environment: `ctest --test-dir build/src/unittests -R LeftModifierSwapTests --output-on-failure`.
+
+**Manual verification**: on the Mac, left Ctrl+C/V should act as Command+C/V and left Windows should act as Control. Confirm right Ctrl remains Control and local Windows shortcuts remain unchanged.

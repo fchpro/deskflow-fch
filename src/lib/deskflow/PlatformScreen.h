@@ -58,6 +58,7 @@ public:
   bool isKeyDown(KeyButton) const override;
   KeyModifierMask getActiveModifiers() const override;
   KeyModifierMask pollActiveModifiers() const override;
+  KeyModifierSides getModifierSides() const override;
   int32_t pollActiveGroup() const override;
   void pollPressedKeys(KeyButtonSet &pressedKeys) const override;
   void clearStaleModifiers() override;

@@ -29,3 +29,11 @@ create_test(
   SOURCE MouseMoveCoalescerTests.cpp
   WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/server"
 )
+
+create_test(
+  NAME LeftModifierSwapTests
+  DEPENDS server
+  LIBS base arch ${extra_libs}
+  SOURCE LeftModifierSwapTests.cpp
+  WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/server"
+)
