@@ -113,3 +113,71 @@ Empty/unset disables the swap. Use the client's canonical screen name. Keep the 
 - New tests: `LeftModifierSwapTests` covers mapping/scope, all 16 left/right modifier combinations, event copies, and Windows down/up/repeat capture after physical state changes. Run from the documented test environment: `ctest --test-dir build/src/unittests -R LeftModifierSwapTests --output-on-failure`.
 
 **Manual verification**: on the Mac, left Ctrl+C/V should act as Command+C/V and left Windows should act as Control. Confirm right Ctrl remains Control and local Windows shortcuts remain unchanged.
+# Streaming session foundations
+
+- `src/lib/streaming/`: bounded session broker, input-exporter-bound TLS 1.3 signaling and credential-checked private GUI IPC. `CoreProcess::streamingSession()` is the GUI integration API.
+- Input protocol 1.8 remains unchanged. Broker port is input port + 1. PeerAuth is mandatory. Sender/receiver/control owners publish actual capabilities. Windows active-session service-core delegation uses exact-logon native IPC; privileged runtime acceptance remains unrun and session-zero capture/input remains prohibited.
+- Windows deployment explicitly includes Qt OpenSSL TLS backend. Alternate executable build output is configurable while the current app is running.
+- Detailed security/API/state contracts and validation limitations: `docs/project/streaming.md`.
+
+# Native capture foundations
+
+- `src/lib/streaming/Capture*`, `WindowsCapture*`, `WindowsWgcSource*`, `MacCapture.mm`, `PortalCapture.cpp`, `X11Capture.cpp`: source enumeration, exact-source native capture and bounded owned frames; worker-thread API consumed by the sender orchestration.
+- `BUILD_STREAMING=ON` resolves GStreamer >=1.28.7 and builds its raw-frame pipeline. Windows direct WGC avoids the upstream GStreamer source's internal DXGI substitution. The approved SDK is at `C:/Work/tools/gstreamer/1.28.7`.
+- Native capture is wired into the consent-gated shared sender/receiver worker; full capture acceptance remains pending. The separately approved controlled Windows-window probe produced blind-checked native captured pixels; display/lifecycle/performance acceptance remains incomplete. macOS/Linux source implementations remain uncompiled/unvalidated. Geometry/input mapping flags must gate later control. Commands and full limitations: `docs/project/streaming.md`.
+
+
+# Local video-file playback
+
+- `src/lib/streaming/FileSource.{h,cpp}` owns asynchronous local decoding, playback controls, metadata and shared-clock bounded BGRA/48-kHz stereo PCM output. `VideoFrame.timelineEpoch` distinguishes seek resets from source/geometry changes.
+- Explicit filesrc plus decode-factory allowlist prevents URI/adaptive playback. Tests generate owned WebM/MP4/MOV/Matroska media; no product FFmpeg dependency. Sender and authorized receiver playback controls use FileSource. Seek events route through the selected linked video branch to the common demuxer so disabled/unlinked audio cannot reject valid file seeking.
+- Commands, verified formats, test prerequisites, ownership and downstream seek flush obligations: `docs/project/streaming.md`.
+
+# Media transport
+
+- `src/lib/streaming/MediaTransport.{h,cpp}`: worker-owned VP8/Opus encoder, direct-interface libnice/WebRTC DTLS-SRTP, explicitly negotiated TWCC/GCC, encrypted RTP geometry/epoch metadata and bounded decoded output.
+- Core private IPC adds verified local `Identity`; roster entries expose authenticated interface addresses. ICE signals carry media-line indexes. Input protocol 1.8 is unchanged.
+- File/audio epoch zero is valid; exact session/source/epoch checks remain enforced. Quantized 30-FPS file timestamps use phase-based pacing.
+- Sender/receiver orchestration and core-owned desktop-control implementation are present. Local transport and virtual-output evidence do not establish cross-device/native-control acceptance or physical audibility; see `docs/project/streaming.md`.
+
+## 7. Streaming input ownership
+
+- New direction: authenticated receiver commands control a specifically captured sender source only after interactive offer permission and explicit source-local grant. One core lease; GUI media worker never calls native injection.
+- Ordinary client/server input and Windows/macOS/X11 hook dispatch honor the core ownership gates. Viewer window focus isolates local shortcuts even in view-only mode. Release ordinary ownership only after the existing native leave/key-release operation finishes.
+- Preserve `server/leftCtrlSuperSwapScreen`: Windows-origin left Ctrl/Super maps once for the authenticated configured recipient name; right modifiers/other peers stay unchanged. Preserve configurable mouse coalescing (250 Hz default; 0 disables).
+- Windows exclusions are passed from existing settings to the new native owner and checked on grant and each input verification. Physical input revokes the lease; marked synthetic input never echoes into existing Deskflow routing.
+- Cleanup retains failed native releases and blocks new/ordinary ownership until retry succeeds; core logs persistent release refusal. Full native/cross-host coexistence acceptance remains blocked by the scoped host/approval prerequisites.
+
+# Stream launcher and sender controls
+
+- MainWindow embeds StreamLauncher: Stream opens source/destination/audio/quality selection; running status and Stop remain in the main window when the dialog closes.
+- SenderController routes authenticated SessionClient state through a dedicated SenderWorker; capture/file/audio/media never run on the GUI or input thread.
+- FileSource retains one real paused preroll frame. Receiver Ready after first decoded video unlocks initial file playback; no file audio is required before Ready.
+- Offscreen component and real IPC/broker/DTLS file tests avoid the running app/user settings. Windows capture clears cached WinRT factories before apartment shutdown to prevent repeated-discovery use-after-free. Detailed APIs/limits: docs/project/streaming.md.
+
+# Receiving viewer and file controls
+
+- StreamViewer exposes sender/source identity, consent, exact audio endpoint, aspect-preserving video, fullscreen/Escape, Stop, private volume/mute and permission-aware file timeline.
+- One SenderController/worker owns either direction and publishes capabilities once. Retired viewers clear pixels and cannot control later sessions.
+- File playback permission is explicit and distinct from desktop input control. The core validates sender/receiver identity, session/source, timeline epoch, bounds and command rate.
+- New epoch PCM starts the receiver clock after paused video preroll with an explicit synchronized 40-ms playout margin; authenticated Opus clipping and per-decoded-buffer metadata preserve sample alignment despite repeated local jitter PTS. Source filenames are sanitized without transmitting paths.
+- Seek keyframe requests target the selected frame's transport running time; queued older frames cannot consume them. Sender rechecks command epoch after broker delivery and rejects overlapping seeks without ending the session.
+- Headless real receiver and owned-process virtual-output tests preserve existing tests. Full MainWindow and cross-device physical-output/input-hook acceptance remain unverified.
+
+
+## 8. Streaming recovery and privacy
+
+- Session/lease-bound GUI queues, retained pending Start identity, early broker Stop and controller-exit IPC detach prevent stale control and retired errors crossing sessions.
+- Capture has an explicit initial Starting state. Backend diagnostics are sanitized. Receiver holds one future-epoch audio block with a three-second video deadline.
+- Streaming-only login/power monitor stops file/receiver/capture paths without changing ordinary lock-screen input behavior. Windows native IPC supports exact-login active-session service delegation in source; privileged runtime acceptance remains pending.
+- New focused recovery, Windows IPC and environment tests and platform limitations: `docs/project/streaming.md`. macOS lock admission may be unavailable pending the explicit API/product decision; no fallback to assumed unlocked state.
+
+- Item-10 current verification: explicit ON/OFF app/core/daemon builds and new recovery/IPC/environment/resource suites pass. Hidden full and quick remain blocked by the unchanged foreground condition and protected raw-audio-error expectation pending exact approval. Overload partial-startup recurrence remains unresolved; concurrent ordinary customization/clipboard tests pass under real media load. Exact evidence and native/platform blockers are recorded in active worklist item10.
+
+## Streaming package integration
+
+`BUILD_STREAMING=ON` packages the private Windows media runtime and validates dependency imports. Native macOS plugin relocation/signing and Linux package-owner dependencies have source integration but require their target hosts for build/runtime acceptance. Use `cmake --build build --target build-validation -j12` before the hidden quick/full test runner. Setup, licenses, exact command matrix and clean-runtime limitations: [streaming-packaging.md](streaming-packaging.md).
+
+- FileSource converts decoded video/PCM sample PTS through the GStreamer segment into media stream time. This fixes MP4 reorder/edit-list offsets in playback and diagnostic frame timestamps; initial and seek positions have real H264/AAC integration coverage.
+
+- Streaming recovery ends observed authenticated-source progress without decoded frames after3s through bilateral Stop. Static/paused sources remain valid; full video blackhole liveness and real-device/reference performance remain acceptance limitations. See streaming.md and active worklist item12.

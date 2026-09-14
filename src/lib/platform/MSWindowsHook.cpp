@@ -1,3 +1,4 @@
+#include "common/StreamingInputGate.h"
 /*
  * Deskflow -- mouse and keyboard sharing utility
  * SPDX-FileCopyrightText: (C) 2012 - 2016 Synergy App Ltd
@@ -502,6 +503,8 @@ static LRESULT CALLBACK keyboardLLHook(int code, WPARAM wParam, LPARAM lParam)
   if (code >= 0) {
     // decode the message
     KBDLLHOOKSTRUCT *info = reinterpret_cast<KBDLLHOOKSTRUCT *>(lParam);
+    if (deskflow::streaming::streamingOwnsInput() || info->dwExtraInfo == deskflow::streaming::controlInputMarker)
+      return CallNextHookEx(nullptr, code, wParam, lParam);
 
     bool const injected = info->flags & LLKHF_INJECTED;
     if (!g_isPrimary && injected) {
@@ -656,6 +659,8 @@ static LRESULT CALLBACK mouseLLHook(int code, WPARAM wParam, LPARAM lParam)
   if (code >= 0) {
     // decode the message
     MSLLHOOKSTRUCT *info = reinterpret_cast<MSLLHOOKSTRUCT *>(lParam);
+    if (deskflow::streaming::streamingOwnsInput() || info->dwExtraInfo == deskflow::streaming::controlInputMarker)
+      return CallNextHookEx(nullptr, code, wParam, lParam);
 
     bool const injected = info->flags & LLMHF_INJECTED;
     if (!g_isPrimary && injected) {

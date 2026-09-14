@@ -103,6 +103,8 @@ CoreProcess::CoreProcess(const ServerConfig &serverConfig)
     : m_serverConfig(serverConfig),
       m_daemonIpcClient{new ipc::DaemonIpcClient(this)}
 {
+  m_streamingSession = new deskflow::streaming::SessionClient(this);
+  m_streamingSession->start();
   m_appPath = QStringLiteral("%1/%2").arg(QCoreApplication::applicationDirPath(), kCoreBinName);
   if (!QFile::exists(m_appPath)) {
     qCritical("core server binary does not exist");

@@ -14,6 +14,9 @@ if (OSX_BUNDLE)
     \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_PROJECT_PROPER_NAME}.app\"
     -timestamp -codesign=-
   )")
+  if(BUILD_STREAMING)
+    include("${MY_DIR}/streaming.cmake")
+  endif()
   set(CPACK_PACKAGE_ICON "${MY_DIR}/dmg-volume.icns")
   set(CPACK_DMG_BACKGROUND_IMAGE "${MY_DIR}/dmg-background.tiff")
   set(CPACK_DMG_DS_STORE_SETUP_SCRIPT "${MY_DIR}/generate_ds_store.applescript")

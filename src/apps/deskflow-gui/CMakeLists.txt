@@ -71,6 +71,7 @@ if(WIN32)
   add_custom_command(
     TARGET ${target} POST_BUILD
     COMMAND ${DEPLOYQT}
+      --force-openssl
       --no-compiler-runtime
       --no-system-d3d-compiler
       --no-opengl-sw

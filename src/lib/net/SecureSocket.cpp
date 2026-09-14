@@ -7,6 +7,14 @@
 
 #include "SecureSocket.h"
 #include "SecureUtils.h"
+#include "streaming/SecureChannel.h"
+#include "io/StreamFilter.h"
+#ifdef _WIN32
+#include <winsock2.h>
+#else
+#include <sys/socket.h>
+#include <netinet/in.h>
+#endif
 
 #include "arch/ArchException.h"
 #include "base/IEventQueue.h"
@@ -382,6 +390,10 @@ void SecureSocket::freeSSL()
 {
   std::scoped_lock ssl_lock{ssl_mutex_};
 
+  if (m_streamingBinding)
+    m_streamingBinding->active = false;
+  m_peerVerified = false;
+
   isFatal(true);
   // take socket from multiplexer ASAP otherwise the race condition
   // could cause events to get called on a dead object. TCPSocket
@@ -436,6 +448,7 @@ int SecureSocket::secureAccept(int socket)
       return -1; // Fail
     }
     m_secureReady = true;
+    m_peerVerified = m_securityLevel == SecurityLevel::PeerAuth;
     LOG_INFO("accepted secure socket");
     SslLogger::logSecureCipherInfo(m_ssl->m_ssl);
     SslLogger::logSecureConnectInfo(m_ssl->m_ssl);
@@ -505,9 +518,80 @@ int SecureSocket::secureConnect(int socket)
     return -1; // Fingerprint failed, error
   }
   LOG_VERBOSE("connected secure socket");
+  m_peerVerified = true;
   SslLogger::logSecureCipherInfo(m_ssl->m_ssl);
   SslLogger::logSecureConnectInfo(m_ssl->m_ssl);
   return 1;
+}
+
+namespace {
+SecureSocket *secureStream(deskflow::IStream *stream)
+{
+  while (auto *filter = dynamic_cast<StreamFilter *>(stream))
+    stream = filter->getStream();
+  return dynamic_cast<SecureSocket *>(stream);
+}
+}
+void SecureSocket::streamingDisconnected(deskflow::IStream *stream)
+{
+  if (auto *socket = secureStream(stream)) {
+    std::scoped_lock lock(socket->ssl_mutex_);
+    if (socket->m_streamingBinding)
+      socket->m_streamingBinding->active = false;
+  }
+}
+void SecureSocket::streamingConnected(deskflow::IStream *stream, const QString &clientName, bool server)
+{
+  auto *socket = secureStream(stream);
+  if (!socket)
+    return;
+  std::scoped_lock lock(socket->ssl_mutex_);
+  if (socket->m_securityLevel != SecurityLevel::PeerAuth || !socket->m_peerVerified ||
+      !socket->m_secureReady || socket->m_fatal || !socket->m_ssl || !socket->m_ssl->m_ssl ||
+      socket->m_streamingBinding || clientName.isEmpty() || clientName.size() > 255)
+    return;
+  auto *ssl = socket->m_ssl->m_ssl;
+  auto *peer = SSL_get0_peer_certificate(ssl);
+  auto *local = SSL_get_certificate(ssl);
+  if (!peer || !local)
+    return;
+  auto binding = std::make_shared<deskflow::streaming::InputBinding>();
+  // The client wire name is the one shared name available in input protocol 1.8.
+  // Certificate identities authenticate the server; never trust a claimed name.
+  binding->secret = deskflow::streaming::inputExporter(ssl, clientName);
+  if (binding->secret.size() != 32)
+    return;
+  unsigned char digest[EVP_MAX_MD_SIZE];
+  unsigned int length = 0;
+  if (X509_digest(peer, EVP_sha256(), digest, &length) != 1)
+    return;
+  binding->peerId = QString::fromLatin1(QByteArray(reinterpret_cast<const char *>(digest), length).toHex());
+  if (X509_digest(local, EVP_sha256(), digest, &length) != 1)
+    return;
+  binding->localId = QString::fromLatin1(QByteArray(reinterpret_cast<const char *>(digest), length).toHex());
+  sockaddr_storage peerAddress{}, localAddress{};
+#ifdef _WIN32
+  int peerLength = sizeof(peerAddress), localLength = sizeof(localAddress);
+#else
+  socklen_t peerLength = sizeof(peerAddress), localLength = sizeof(localAddress);
+#endif
+  if (getpeername(SSL_get_fd(ssl), reinterpret_cast<sockaddr *>(&peerAddress), &peerLength) != 0 ||
+      getsockname(SSL_get_fd(ssl), reinterpret_cast<sockaddr *>(&localAddress), &localLength) != 0)
+    return;
+  binding->address.setAddress(reinterpret_cast<sockaddr *>(&peerAddress));
+  binding->localAddress.setAddress(reinterpret_cast<sockaddr *>(&localAddress));
+  const auto &serverAddress = server ? localAddress : peerAddress;
+  const auto port = ntohs(serverAddress.ss_family == AF_INET
+                              ? reinterpret_cast<const sockaddr_in *>(&serverAddress)->sin_port
+                              : reinterpret_cast<const sockaddr_in6 *>(&serverAddress)->sin6_port);
+  if (port == 65535)
+    return;
+  binding->brokerPort = port + 1;
+  binding->generation = QString::fromLatin1(QCryptographicHash::hash(binding->secret, QCryptographicHash::Sha256).toHex().left(32));
+  binding->name = clientName;
+  binding->server = server;
+  socket->m_streamingBinding = binding;
+  deskflow::streaming::publishBinding(binding);
 }
 
 bool SecureSocket::showCertificate() const

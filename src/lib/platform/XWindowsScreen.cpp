@@ -9,6 +9,7 @@
 #include "common/Settings.h" // must include first
 
 #include "platform/XWindowsScreen.h"
+#include "common/StreamingInputGate.h"
 
 #include "arch/Arch.h"
 #include "base/IEventQueue.h"
@@ -1089,6 +1090,8 @@ void XWindowsScreen::handleSystemEvent(const Event &event)
 {
   auto *xevent = static_cast<XEvent *>(event.getData());
   assert(xevent != nullptr);
+  if(deskflow::streaming::streamingOwnsInput() &&
+    (xevent->type==KeyPress || xevent->type==KeyRelease || xevent->type==ButtonPress || xevent->type==ButtonRelease || xevent->type==MotionNotify || xevent->type==GenericEvent))return;
 
   // update key state
   bool isRepeat = false;

@@ -20,6 +20,9 @@ class ISocketMultiplexerJob;
 class QString;
 
 struct Ssl;
+namespace deskflow::streaming {
+struct InputBinding;
+}
 
 //! Secure socket
 /*!
@@ -67,6 +70,9 @@ public:
   JobResult doWrite() override;
   void initSsl(bool server);
   bool loadCertificate(const QString &filename);
+  // Called only after the input application handshake has accepted the peer.
+  static void streamingConnected(deskflow::IStream *stream, const QString &clientName, bool server);
+  static void streamingDisconnected(deskflow::IStream *stream);
 
 private:
   // SSL
@@ -95,6 +101,8 @@ private:
   std::unique_ptr<Ssl> m_ssl;
   bool m_secureReady = false;
   bool m_fatal = false;
+  bool m_peerVerified = false;
+  std::shared_ptr<deskflow::streaming::InputBinding> m_streamingBinding;
   SecurityLevel m_securityLevel = SecurityLevel::Encrypted;
 
   bool m_writeRetry = false;

@@ -17,3 +17,10 @@ if(CPACK_GENERATOR MATCHES 7Z|ZIP)
   The portable version does not include the daemon, so the client will not work at UAC prompts or the login screen.
 ")
 endif()
+
+if(@BUILD_STREAMING@)
+  # Portable transforms remove the daemon and add CRT files. Re-audit the final
+  # payload so runtime_files describes the archive rather than the install stage.
+  set(CMAKE_INSTALL_PREFIX "${CPACK_TEMPORARY_INSTALL_DIRECTORY}")
+  include("@CMAKE_BINARY_DIR@/streaming-install.cmake")
+endif()

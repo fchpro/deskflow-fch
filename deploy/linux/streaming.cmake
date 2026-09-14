@@ -1,0 +1,66 @@
+# SPDX-License-Identifier: MIT
+# Dynamic plugin dependencies cannot be inferred from ELF DT_NEEDED/shlibdeps.
+# Resolve the installed factory files and their actual native package owners.
+find_program(STREAMING_GST_INSPECT gst-inspect-1.0 REQUIRED)
+if(EXISTS "/.flatpak-info")
+  message(FATAL_ERROR "Streaming Flatpak needs a reviewed PipeWire/process/session sandbox contract")
+endif()
+if(CPACK_GENERATOR STREQUAL "DEB")
+  find_program(STREAMING_PACKAGE_QUERY dpkg-query REQUIRED)
+  set(STREAMING_PACKAGE_KIND deb)
+elseif(CPACK_GENERATOR STREQUAL "RPM")
+  find_program(STREAMING_PACKAGE_QUERY rpm REQUIRED)
+  set(STREAMING_PACKAGE_KIND rpm)
+elseif(DISTRO_NAME STREQUAL "arch")
+  find_program(STREAMING_PACKAGE_QUERY pacman REQUIRED)
+  set(STREAMING_PACKAGE_KIND arch)
+else()
+  message(FATAL_ERROR "Streaming package dependency mapping is not defined for this distribution")
+endif()
+set(STREAMING_FACTORIES appsrc appsink filesrc decodebin videoconvert audioconvert audioresample
+  volume matroskademux qtdemux vp8enc vp8dec vp9dec avdec_h264 h264parse aacparse avdec_aac
+  opusenc opusdec opusparse vorbisdec vorbisparse webrtcbin rtpgccbwe nicesrc nicesink
+  dtlssrtpenc dtlssrtpdec rtpvp8pay rtpvp8depay rtpopuspay rtpopusdepay rtphdrexttwcc
+  pipewiresrc pipewiresink audiomixer)
+set(STREAMING_NATIVE_DEPENDS)
+foreach(factory IN LISTS STREAMING_FACTORIES)
+  execute_process(COMMAND "${CMAKE_COMMAND}" -E env LC_ALL=C "${STREAMING_GST_INSPECT}" "${factory}"
+    OUTPUT_VARIABLE details RESULT_VARIABLE status ERROR_VARIABLE diagnostic)
+  if(NOT status EQUAL 0 OR NOT details MATCHES "Filename[ \t]+([^\n\r]+)")
+    message(FATAL_ERROR "Required streaming factory ${factory} is unavailable: ${diagnostic}")
+  endif()
+  string(STRIP "${CMAKE_MATCH_1}" plugin_file)
+  if(STREAMING_PACKAGE_KIND STREQUAL "deb")
+    execute_process(COMMAND "${STREAMING_PACKAGE_QUERY}" -S "${plugin_file}"
+      OUTPUT_VARIABLE owner RESULT_VARIABLE status OUTPUT_STRIP_TRAILING_WHITESPACE)
+    string(REGEX REPLACE ": /.*$" "" owner "${owner}")
+    if(status EQUAL 0)
+      execute_process(COMMAND "${STREAMING_PACKAGE_QUERY}" -W "-f=\${Package} (>= \${Version})" "${owner}"
+        OUTPUT_VARIABLE dependency RESULT_VARIABLE status OUTPUT_STRIP_TRAILING_WHITESPACE)
+    endif()
+  elseif(STREAMING_PACKAGE_KIND STREQUAL "rpm")
+    execute_process(COMMAND "${STREAMING_PACKAGE_QUERY}" -qf --qf "%{NAME} >= %{VERSION}-%{RELEASE}" "${plugin_file}"
+      OUTPUT_VARIABLE dependency RESULT_VARIABLE status OUTPUT_STRIP_TRAILING_WHITESPACE)
+  else()
+    execute_process(COMMAND "${STREAMING_PACKAGE_QUERY}" -Qoq "${plugin_file}"
+      OUTPUT_VARIABLE dependency RESULT_VARIABLE status OUTPUT_STRIP_TRAILING_WHITESPACE)
+  endif()
+  if(NOT status EQUAL 0 OR dependency STREQUAL "" OR dependency MATCHES "[\n\r]")
+    message(FATAL_ERROR "No unique native package owns ${plugin_file}; package the SDK into the target repository first")
+  endif()
+  list(APPEND STREAMING_NATIVE_DEPENDS "${dependency}")
+endforeach()
+list(REMOVE_DUPLICATES STREAMING_NATIVE_DEPENDS)
+if(STREAMING_PACKAGE_KIND STREQUAL "deb")
+  list(JOIN STREAMING_NATIVE_DEPENDS ", " plugins)
+  set(CPACK_DEBIAN_PACKAGE_DEPENDS "${CPACK_DEBIAN_PACKAGE_DEPENDS}, ${plugins}, pipewire, xdg-desktop-portal")
+  string(REGEX REPLACE "^, " "" CPACK_DEBIAN_PACKAGE_DEPENDS "${CPACK_DEBIAN_PACKAGE_DEPENDS}")
+elseif(STREAMING_PACKAGE_KIND STREQUAL "rpm")
+  list(JOIN STREAMING_NATIVE_DEPENDS ", " plugins)
+  set(CPACK_RPM_PACKAGE_REQUIRES "${CPACK_RPM_PACKAGE_REQUIRES}, ${plugins}, pipewire, xdg-desktop-portal")
+  string(REGEX REPLACE "^, " "" CPACK_RPM_PACKAGE_REQUIRES "${CPACK_RPM_PACKAGE_REQUIRES}")
+else()
+  list(APPEND STREAMING_NATIVE_DEPENDS "pipewire" "xdg-desktop-portal")
+  list(JOIN STREAMING_NATIVE_DEPENDS "\n  " STREAMING_ARCH_DEPENDS)
+endif()
+message(STATUS "Streaming native plugin package dependencies: ${STREAMING_NATIVE_DEPENDS}")

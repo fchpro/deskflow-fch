@@ -30,6 +30,11 @@ add_library(${target} STATIC
   MainWindow.cpp
   MainWindow.h
   MainWindow.ui
+  streaming/SenderController.cpp streaming/SenderController.h
+  streaming/SenderWorker.cpp streaming/SenderWorker.h
+  streaming/ReceiverWorker.cpp
+  streaming/StreamViewer.cpp streaming/StreamViewer.h
+  streaming/StreamDialog.cpp streaming/StreamDialog.h
   Messages.cpp
   Messages.h
   ScreenSetupModel.cpp
@@ -136,4 +141,5 @@ target_link_libraries(${target}
     platform
     net
     Qt6::Widgets
+    streaming-capture
 )

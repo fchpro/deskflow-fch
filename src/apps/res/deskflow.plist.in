@@ -40,6 +40,8 @@
 	<false/>
 
 	<!-- Local Lan Entitlements -->
+	<key>NSScreenCaptureUsageDescription</key>
+	<string>Deskflow shares only the display or window you select and its audio when enabled with a computer you authorize.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>This app uses local network permissions for communication between a Deskflow server and clients.</string>
 	<key>com.apple.security.networking.local</key>

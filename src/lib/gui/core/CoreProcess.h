@@ -11,6 +11,7 @@
 #include "common/Settings.h"
 #include "gui/FileTail.h"
 #include "gui/config/ServerConfig.h"
+#include "streaming/PrivateIpc.h"
 
 #include <QMutex>
 #include <QObject>
@@ -39,6 +40,7 @@ public:
   };
 
   explicit CoreProcess(const ServerConfig &serverConfig);
+  deskflow::streaming::SessionClient *streamingSession() const { return m_streamingSession; }
 
   void start(std::optional<ProcessMode> processMode = std::nullopt);
   void stop(std::optional<ProcessMode> processMode = std::nullopt);
@@ -121,6 +123,7 @@ private:
   static QString wrapIpv6(const QString &address);
 
   const ServerConfig &m_serverConfig;
+  deskflow::streaming::SessionClient *m_streamingSession = nullptr;
   QString m_address;
   ProcessState m_processState = ProcessState::Stopped;
   ConnectionState m_connectionState = ConnectionState::Disconnected;

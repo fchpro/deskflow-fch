@@ -26,13 +26,6 @@ install(
   DESTINATION ${CMAKE_INSTALL_DATADIR}/metainfo/
 )
 
-# Prepare PKGBUILD for Arch Linux
-configure_file(
-  ${MY_DIR}/arch/PKGBUILD.in
-  ${CMAKE_BINARY_DIR}/PKGBUILD
-  @ONLY
-)
-
 set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "qt6-svg-plugins")
@@ -108,3 +101,8 @@ elseif(${CMAKE_SYSTEM_NAME} MATCHES "|.*BSD")
   message(STATUS "BSD packaging not yet supported")
   set(OS_STRING ${CMAKE_SYSTEM_NAME}-${BUILD_ARCHITECTURE})
 endif()
+
+if(BUILD_STREAMING)
+  include("${MY_DIR}/streaming.cmake")
+endif()
+configure_file("${MY_DIR}/arch/PKGBUILD.in" "${CMAKE_BINARY_DIR}/PKGBUILD" @ONLY)

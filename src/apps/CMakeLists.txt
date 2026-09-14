@@ -39,6 +39,14 @@ set(WIN32_POST_EXCLUDE_REGEXES ".*system32.*")
 
 set(WIN32_RUNTIME_DEPENDENCY_SET_ARGS)
 if(WIN32)
+  if(BUILD_STREAMING)
+    # The final bundle stage selects SDK OpenSSL once for all consumers and audits
+    # their imports. Do not let CMake collect conflicting vcpkg/SDK copies first.
+    list(APPEND WIN32_PRE_EXCLUDE_REGEXES "^libcrypto-.*\\.dll$" "^libssl-.*\\.dll$")
+    # CMake's dependency scanner does not use process PATH on every version.
+    cmake_path(SET STREAMING_SDK NORMALIZE "${GSTREAMER_gstreamer-1.0_PREFIX}")
+    list(APPEND WIN32_RUNTIME_DEPENDENCY_SET_ARGS DIRECTORIES "${STREAMING_SDK}/bin")
+  endif()
 # Runtime DLL fallback for layouts like vcpkg
   if(DEFINED OPENSSL_EXE_DIR AND EXISTS "${OPENSSL_EXE_DIR}")
     list(APPEND WIN32_RUNTIME_DEPENDENCY_SET_ARGS DIRECTORIES "${OPENSSL_EXE_DIR}")

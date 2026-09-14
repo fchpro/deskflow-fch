@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: MIT
+execute_process(COMMAND "@Python3_EXECUTABLE@"
+  "@CMAKE_SOURCE_DIR@/deploy/windows/bundle_streaming.py"
+  --sdk "@STREAMING_SDK_ROOT@" --destination "${CMAKE_INSTALL_PREFIX}"
+  --qt "@STREAMING_QT_ROOT@" --crt "@STREAMING_CRT_DIR@"
+  --minimum-crt "@REQUIRED_MSVC_RUNTIME_MAJOR@.@REQUIRED_MSVC_RUNTIME_MINOR@"
+  RESULT_VARIABLE streaming_result)
+if(NOT streaming_result EQUAL 0)
+  message(FATAL_ERROR "Private streaming runtime packaging failed (${streaming_result})")
+endif()

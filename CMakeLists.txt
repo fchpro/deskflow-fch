@@ -162,7 +162,7 @@ if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 
 # Set Output Folders
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin" CACHE PATH "Directory for built application executables")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/lib")
 
 # disables the use of signals,slots and emit
@@ -241,6 +241,24 @@ add_subdirectory(docs)
 add_subdirectory(translations)
 
 add_subdirectory(src)
+
+# Build every application/test consumer without the default all target's CTest
+# launch. Native tests must be executed separately through the hidden runner.
+get_property(DESKFLOW_VALIDATION_TARGETS GLOBAL PROPERTY ${CMAKE_PROJECT_NAME}_tests)
+foreach(validation_app deskflow Deskflow deskflow-core deskflow-daemon
+    StreamingPackageProbe StreamingCaptureProbe StreamingAudioProbe StreamingControlProbe)
+  if(TARGET ${validation_app})
+    list(APPEND DESKFLOW_VALIDATION_TARGETS ${validation_app})
+  endif()
+endforeach()
+add_custom_target(build-validation DEPENDS ${DESKFLOW_VALIDATION_TARGETS})
+
+if((WIN32 OR APPLE) AND BUILD_STREAMING)
+  include(cmake/StreamingDevelopmentRuntime.cmake)
+endif()
+if(WIN32 AND BUILD_STREAMING)
+  include(deploy/windows/streaming.cmake)
+endif()
 
 if(BUILD_INSTALLER)
     add_subdirectory(deploy)

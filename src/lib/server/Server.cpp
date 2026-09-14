@@ -1,3 +1,4 @@
+#include "common/StreamingInputGate.h"
 /*
  * Deskflow -- mouse and keyboard sharing utility
  * SPDX-FileCopyrightText: (C) 2025 Deskflow Developers.
@@ -20,6 +21,7 @@
 #include "deskflow/StreamChunker.h"
 #include "deskflow/ipc/CoreIpc.h"
 #include "net/TCPSocket.h"
+#include "net/SecureSocket.h"
 #include "server/ClientListener.h"
 #include "server/ClientProxy.h"
 #include "server/ClientProxyUnknown.h"
@@ -269,6 +271,7 @@ void Server::adoptClient(BaseClientProxy *client)
     return;
   }
   LOG_DEBUG("client \"%s\" has connected", getName(client).c_str());
+  SecureSocket::streamingConnected(client->getStream(), QString::fromStdString(client->getName()), true);
   ipcSendConnectionState(deskflow::core::ConnectionState::Connected);
   sendConnectedClientsIpc();
 
@@ -399,6 +402,13 @@ int32_t Server::getJumpZoneSize(const BaseClientProxy *client) const
 
 void Server::switchScreen(BaseClientProxy *dst, int32_t x, int32_t y, bool forScreensaver)
 {
+  const bool previouslyLocal=deskflow::streaming::ordinaryInputLocal.exchange(false);
+  if (deskflow::streaming::streamingOwnsInput() && dst != m_primaryClient) {
+    deskflow::streaming::ordinaryInputLocal=previouslyLocal;return;
+  }
+  struct LocalOwnershipCompletion { Server *self; ~LocalOwnershipCompletion(){
+    deskflow::streaming::ordinaryInputLocal=self->m_active==self->m_primaryClient;
+  }} ownershipCompletion{this};
   assert(dst != nullptr);
 
   // pending coalesced motion belongs to the old screen
@@ -491,6 +501,7 @@ void Server::switchScreen(BaseClientProxy *dst, int32_t x, int32_t y, bool forSc
 
     // cut over
     m_active = dst;
+
 
     // increment enter sequence number
     ++m_seqNum;
@@ -1547,6 +1558,7 @@ void Server::onKeyDown(
     KeyModifierSides sides
 )
 {
+  if (deskflow::streaming::streamingOwnsInput()) return;
   LOG_VERBOSE("onKeyDown id=%d mask=0x%04x button=0x%04x lang=%s", id, mask, button, lang.c_str());
   assert(m_active != nullptr);
 
@@ -1576,6 +1588,7 @@ void Server::onKeyDown(
 
 void Server::onKeyUp(KeyID id, KeyModifierMask mask, KeyButton button, const char *screens, KeyModifierSides sides)
 {
+  if (deskflow::streaming::streamingOwnsInput()) return;
   LOG_VERBOSE("onKeyUp id=%d mask=0x%04x button=0x%04x", id, mask, button);
   assert(m_active != nullptr);
 
@@ -1607,6 +1620,7 @@ void Server::onKeyRepeat(
     KeyID id, KeyModifierMask mask, int32_t count, KeyButton button, const std::string &lang, KeyModifierSides sides
 )
 {
+  if (deskflow::streaming::streamingOwnsInput()) return;
   LOG(
       (CLOG_VERBOSE "onKeyRepeat id=%d mask=0x%04x count=%d button=0x%04x lang=\"%s\"", id, mask, count, button,
        lang.c_str())
@@ -1620,6 +1634,7 @@ void Server::onKeyRepeat(
 
 void Server::onMouseDown(ButtonID id)
 {
+  if (deskflow::streaming::streamingOwnsInput()) return;
   flushPendingMouseMove();
   LOG_VERBOSE("onMouseDown id=%d", id);
   assert(m_active != nullptr);
@@ -1630,6 +1645,7 @@ void Server::onMouseDown(ButtonID id)
 
 void Server::onMouseUp(ButtonID id)
 {
+  if (deskflow::streaming::streamingOwnsInput()) return;
   flushPendingMouseMove();
   LOG_VERBOSE("onMouseUp id=%d", id);
   assert(m_active != nullptr);
@@ -1640,6 +1656,7 @@ void Server::onMouseUp(ButtonID id)
 
 bool Server::onMouseMovePrimary(int32_t x, int32_t y)
 {
+  if (deskflow::streaming::streamingOwnsInput()) return false;
   LOG_VERBOSE("onMouseMovePrimary %d,%d", x, y);
 
   // mouse move on primary (server's) screen
@@ -1737,6 +1754,7 @@ bool Server::onMouseMovePrimary(int32_t x, int32_t y)
 
 void Server::onMouseMoveSecondary(int32_t dx, int32_t dy)
 {
+  if (deskflow::streaming::streamingOwnsInput()) return;
   LOG_VERBOSE("mouse move on secondary: %+d,%+d", dx, dy);
 
   // TODO: move this to client side and use a qt setting or cli arg instead of env var.
@@ -1953,6 +1971,7 @@ void Server::handleMouseFlushTimer()
 
 void Server::flushPendingMouseMove()
 {
+  if (deskflow::streaming::streamingOwnsInput()) return;
   if (!m_mouseCoalescer.hasPending()) {
     return;
   }
@@ -1963,6 +1982,7 @@ void Server::flushPendingMouseMove()
 
 void Server::onMouseWheel(int32_t xDelta, int32_t yDelta)
 {
+  if (deskflow::streaming::streamingOwnsInput()) return;
   flushPendingMouseMove();
   LOG_VERBOSE("onMouseWheel %+d,%+d", xDelta, yDelta);
   assert(m_active != nullptr);
@@ -2007,6 +2027,7 @@ bool Server::addClient(BaseClientProxy *client)
 
 bool Server::removeClient(BaseClientProxy *client)
 {
+  SecureSocket::streamingDisconnected(client->getStream());
   using enum EventTypes;
   // return false if not in list
   ClientSet::iterator i = m_clientSet.find(client);

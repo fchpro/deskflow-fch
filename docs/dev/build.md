@@ -105,3 +105,22 @@ After configuring you should be able to run make to build all targets.
 [openssl]:https://www.openssl.org/
 [libei]:https://gitlab.freedesktop.org/libinput/libei
 [libportal]:https://github.com/flatpak/libportal
+
+## Streaming package integration
+
+`BUILD_STREAMING=ON` packages the private Windows media runtime and validates dependency imports. Native macOS plugin relocation/signing and Linux package-owner dependencies have source integration but require their target hosts for build/runtime acceptance. Use `cmake --build build --target build-validation -j12` before the hidden quick/full test runner. Setup, licenses, exact command matrix and clean-runtime limitations: [streaming-packaging.md](../project/streaming-packaging.md).
+
+Windows streaming packaging validation produced portable 7Z and MSI. WiX4.0.6 was extracted from its official NuGet package into `temp/wix-4.0.6`; its unmodified runtime configuration supports the installed .NET8.0.31. Matching UI/Util/Firewall4.0.6 extensions are under the owned `temp/wix-extension-cache-11` cache. No global tool/runtime installation was needed. MSI service installation is an explicit clean-host manual check and must not be run against the active user installation. The packaged Qt Windows platform plugin can exercise `deskflow.exe --help` on an unselected desktop with precreated portable settings and owned XDG_STATE_HOME; this exits before MainWindow/singleton/core startup. Offscreen is a test-fixture plugin and is not shipped by the normal Windows Qt deployment.
+
+
+MSI build with that local toolchain (process-local environment):
+
+```bat
+set WIX=C:\Work\projects\deskflow-fch\temp\wix-4.0.6
+set WIX_EXTENSIONS=C:\Work\projects\deskflow-fch\temp\wix-extension-cache-11
+set PATH=%WIX%;%PATH%
+cmake --build build --target wix-custom -j12
+cpack -G WIX --config build/CPackConfig.cmake -B C:/Work/projects/deskflow-fch/temp/streaming-msi
+```
+
+With a .NET SDK, official tool setup can use `dotnet tool install --tool-path <owned-directory> wix --version 4.0.6`; then set WIX_EXTENSIONS before `wix extension add --global WixToolset.UI.wixext/4.0.6 WixToolset.Util.wixext/4.0.6 WixToolset.Firewall.wixext/4.0.6`. The cache override keeps these build-only extensions in the owned directory. Current host has only .NET runtime, so the official `https://api.nuget.org/v3-flatcontainer/wix/4.0.6/wix.4.0.6.nupkg` was extracted with its `tools/net6.0/any` contents preserved. Installer runtime/service guards remain unchanged and require the corresponding installed Microsoft VC redistributable on the target host. MSI was only built and read through read-only database/payload APIs; installation is unverified.

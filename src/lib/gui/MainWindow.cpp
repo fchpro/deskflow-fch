@@ -12,6 +12,7 @@
 
 #include "Diagnostic.h"
 #include "StyleUtils.h"
+#include "streaming/StreamDialog.h"
 
 #include "dialogs/AboutDialog.h"
 #include "dialogs/ClientConfigDialog.h"
@@ -85,6 +86,8 @@ MainWindow::MainWindow()
       m_networkMonitor{new NetworkMonitor(this)}
 {
   ui->setupUi(this);
+  auto *sender = new SenderController(m_coreProcess.streamingSession(), this);
+  ui->topLevelWidget->layout()->addWidget(new StreamLauncher(sender, this));
 
   setWindowIcon(QIcon::fromTheme(kRevFqdnName));
 

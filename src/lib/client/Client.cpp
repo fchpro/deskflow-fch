@@ -1,3 +1,4 @@
+#include "common/StreamingInputGate.h"
 /*
  * Deskflow -- mouse and keyboard sharing utility
  * SPDX-FileCopyrightText: (C) 2025 - 2026 Deskflow Developers
@@ -169,6 +170,7 @@ void Client::refuseConnection(deskflow::core::ConnectionRefusal reason, const ch
 
 void Client::handshakeComplete()
 {
+  SecureSocket::streamingConnected(m_stream, QString::fromStdString(m_name), false);
   m_ready = true;
   m_screen->enable();
   if (m_relativeMouseMoves && !m_hasRelativeRestorePosition) {
@@ -219,7 +221,10 @@ void Client::getCursorPos(int32_t &x, int32_t &y) const
 
 void Client::enter(int32_t xAbs, int32_t yAbs, uint32_t, KeyModifierMask mask, bool)
 {
+  const bool previouslyLocal=deskflow::streaming::ordinaryInputLocal.exchange(false);
+  if (deskflow::streaming::streamingOwnsInput()) {deskflow::streaming::ordinaryInputLocal=previouslyLocal;return;}
   m_active = true;
+  deskflow::streaming::ordinaryInputLocal = false;
   if (m_relativeMouseMoves && m_hasRelativeRestorePosition) {
     xAbs = m_relativeRestoreX;
     yAbs = m_relativeRestoreY;
@@ -235,8 +240,7 @@ bool Client::leave()
     saveRelativeRestorePosition();
   }
   m_active = false;
-
-  m_screen->leave();
+  deskflow::streaming::finishOrdinaryInput([this]{m_screen->leave();});
 
   if (m_enableClipboard) {
     // send clipboards that we own and that have changed
@@ -271,41 +275,49 @@ void Client::setClipboardDirty(ClipboardID, bool)
 
 void Client::keyDown(KeyID id, KeyModifierMask mask, KeyButton button, const std::string &lang)
 {
+  if (deskflow::streaming::streamingOwnsInput()) return;
   m_screen->keyDown(id, mask, button, lang);
 }
 
 void Client::keyRepeat(KeyID id, KeyModifierMask mask, int32_t count, KeyButton button, const std::string &lang)
 {
+  if (deskflow::streaming::streamingOwnsInput()) return;
   m_screen->keyRepeat(id, mask, count, button, lang);
 }
 
 void Client::keyUp(KeyID id, KeyModifierMask mask, KeyButton button)
 {
+  if (deskflow::streaming::streamingOwnsInput()) return;
   m_screen->keyUp(id, mask, button);
 }
 
 void Client::mouseDown(ButtonID id)
 {
+  if (deskflow::streaming::streamingOwnsInput()) return;
   m_screen->mouseDown(id);
 }
 
 void Client::mouseUp(ButtonID id)
 {
+  if (deskflow::streaming::streamingOwnsInput()) return;
   m_screen->mouseUp(id);
 }
 
 void Client::mouseMove(int32_t x, int32_t y)
 {
+  if (deskflow::streaming::streamingOwnsInput()) return;
   m_screen->mouseMove(x, y);
 }
 
 void Client::mouseRelativeMove(int32_t dx, int32_t dy)
 {
+  if (deskflow::streaming::streamingOwnsInput()) return;
   m_screen->mouseRelativeMove(dx, dy);
 }
 
 void Client::mouseWheel(int32_t xDelta, int32_t yDelta)
 {
+  if (deskflow::streaming::streamingOwnsInput()) return;
   m_screen->mouseWheel(xDelta, yDelta);
 }
 
@@ -543,6 +555,7 @@ void Client::cleanupTimer()
 
 void Client::cleanupStream()
 {
+  SecureSocket::streamingDisconnected(m_stream);
   delete m_stream;
   m_stream = nullptr;
 }

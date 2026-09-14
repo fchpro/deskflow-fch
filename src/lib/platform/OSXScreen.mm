@@ -18,6 +18,7 @@
 #include "client/Client.h"
 #include "common/ExitCodes.h"
 #include "common/Settings.h"
+#include "common/StreamingInputGate.h"
 #include "deskflow/ClientApp.h"
 #include "deskflow/Clipboard.h"
 #include "deskflow/DisplayInvalidException.h"
@@ -1680,6 +1681,8 @@ OSXScreen::handleCGInputEventSecondary(CGEventTapProxy proxy, CGEventType type, 
 // Quartz event tap support
 CGEventRef OSXScreen::handleCGInputEvent(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *refcon)
 {
+  if(deskflow::streaming::streamingOwnsInput() ||
+    (event && CGEventGetIntegerValueField(event,kCGEventSourceUserData)==deskflow::streaming::controlInputMarker))return event;
   OSXScreen *screen = (OSXScreen *)refcon;
 
   switch (type) {

@@ -16,6 +16,7 @@
 #include "deskflow/ClientApp.h"
 #include "deskflow/ServerApp.h"
 #include "deskflow/ipc/CoreIpcServer.h"
+#include "streaming/Service.h"
 
 #if defined(Q_OS_WIN)
 #include "arch/win32/ArchMiscWindows.h"
@@ -127,12 +128,31 @@ int main(int argc, char **argv)
   );
   ipcServer->listen();
 
+  QThread streamingThread;
+  QObject streamingWorker;
+  streamingWorker.moveToThread(&streamingThread);
+  const auto certificatePath = Settings::value(Settings::Security::Certificate).toString();
+  const auto streamingName = Settings::value(Settings::Core::ComputerName).toString();
+  QObject::connect(&streamingThread, &QThread::started, &streamingWorker, [&] {
+    auto *service=new deskflow::streaming::Service(certificatePath, streamingName, &streamingWorker);
+    service->configureControl(Settings::value(Settings::Server::ExcludedApps).toStringList(),
+      Settings::value(Settings::Server::LeftCtrlSuperSwapScreen).toString(),
+      Settings::value(Settings::Server::MouseSendRateHz).toInt());
+  });
+  streamingThread.start();
+
   QThread coreThread;
   QObject::connect(&coreThread, &QThread::finished, &app, &QApplication::quit);
   coreApp->run(coreThread);
 
   int exitCode = QApplication::exec();
   coreThread.wait();
+  QMetaObject::invokeMethod(&streamingWorker, [&] {
+    qDeleteAll(streamingWorker.children());
+    streamingWorker.moveToThread(app.thread());
+  }, Qt::BlockingQueuedConnection);
+  streamingThread.quit();
+  streamingThread.wait();
 
   if (exitCode == s_exitSuccess) {
     exitCode = coreApp->getExitCode();
