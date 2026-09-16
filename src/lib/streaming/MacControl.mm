@@ -77,12 +77,12 @@ public:
     CGRect rect=CGRectNull;
     const pid_t foreground=NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier;
     uint32_t focusedWindow=0;CGRect focusedBounds=CGRectNull;
-    if(keyboard){NSArray *windows=CFBridgingRelease(CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly|kCGWindowListExcludeDesktopElements,kCGNullWindow));
+    if(keyboard){NSArray *windows=CFBridgingRelease(CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly|kCGWindowListExcludeDesktopElements,kCGNullWindowID));
       for(NSDictionary *window in windows)if([window[(id)kCGWindowOwnerPID] intValue]==foreground && [window[(id)kCGWindowLayer] intValue]==0){
         if(CGRectMakeWithDictionaryRepresentation((__bridge CFDictionaryRef)window[(id)kCGWindowBounds],&focusedBounds))focusedWindow=[window[(id)kCGWindowNumber] unsignedIntValue];break;}}
     if(m_target["kind"]=="window") {
       if(!m_birth || processBirth(m_pid)!=m_birth)return false;
-      NSArray *windows=CFBridgingRelease(CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly|kCGWindowListExcludeDesktopElements,kCGNullWindow));
+      NSArray *windows=CFBridgingRelease(CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly|kCGWindowListExcludeDesktopElements,kCGNullWindowID));
       bool hit=!point;
       const CGPoint position=point?CGPointMake(point->x()/m_scale,point->y()/m_scale):CGPointZero;
       for(NSDictionary *window in windows){CGRect bounds{};if(!CGRectMakeWithDictionaryRepresentation((__bridge CFDictionaryRef)window[(id)kCGWindowBounds],&bounds))continue;

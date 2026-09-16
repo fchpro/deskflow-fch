@@ -98,6 +98,12 @@ project(
   LANGUAGES C CXX
 )
 
+# ObjC/ObjC++ must be enabled at the top level: enabling it in a subdirectory
+# reclassifies .mm sources elsewhere and breaks generation.
+if(APPLE)
+  enable_language(OBJC OBJCXX)
+endif()
+
 # Define Additional "PROJECT" vars for packaging and metadata
 set(CMAKE_PROJECT_PROPER_NAME "Deskflow")
 set(CMAKE_PROJECT_VENDOR "${CMAKE_PROJECT_PROPER_NAME} Devs")

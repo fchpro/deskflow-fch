@@ -44,6 +44,7 @@ typedef uint32_t KeyModifierMask;
 using KeyModifierMask = uint32_t;
 #endif
 
+#ifdef __cplusplus
 // Physical Ctrl/Super sides sampled when an event is captured (Windows server).
 struct KeyModifierSides
 {
@@ -51,6 +52,7 @@ struct KeyModifierSides
   KeyModifierMask right = 0;
   bool operator==(const KeyModifierSides &) const = default;
 };
+#endif
 
 //! Modifier key ID
 /*!
