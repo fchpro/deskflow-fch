@@ -47,7 +47,7 @@ List is read once at core start (restart core after editing). Caveat: the stock 
 - Only the jump-zone watching is disabled; the low-level hooks stay installed but pass everything through (`kHOOK_DISABLE`), cost is negligible.
 - Pause only applies while the cursor is on the primary (Windows) screen.
 - macOS client is untouched; protocol unchanged.
-- **Stock GUI strips the key**: the upstream/stock Deskflow GUI removes `excludedApps` from the conf (unknown key cleanup). Never run the stock GUI while using this feature. The stock service is stopped and disabled; run the custom build (desktop shortcut "Deskflow FCH") in Desktop process mode (`processMode=1`).
+- **Stock GUI strips the key**: the upstream/stock Deskflow GUI removes `excludedApps` from the conf (unknown key cleanup). Never run the stock GUI while using this feature. The stock service is stopped and disabled; run the custom build (desktop shortcut "Deskflow FCH" -> `dist/<date>/deskflow.exe`, see PROJECT.md) in Desktop process mode (`processMode=1`).
 
 ## 2. Pause/resume toast (Windows server only)
 
