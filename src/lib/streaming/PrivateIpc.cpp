@@ -20,6 +20,18 @@ bool write(QLocalSocket *socket, const QJsonObject &frame)
     return false;
   return socket->write(bytes) == bytes.size();
 }
+#ifndef Q_OS_WIN
+// macOS TMPDIR is long and sun_path holds 104 bytes; UserAccessOption adds a private
+// directory level. Map the logical endpoint to a short, deterministic socket name there.
+QString socketName(const QString &endpoint)
+{
+#ifdef Q_OS_MACOS
+  if (!endpoint.isEmpty())
+    return "dfs-" + QString::fromLatin1(QCryptographicHash::hash(endpoint.toUtf8(), QCryptographicHash::Sha256).toHex().left(24));
+#endif
+  return endpoint;
+}
+#endif
 } // namespace
 QString privateEndpoint()
 {
@@ -116,7 +128,20 @@ bool PrivateIpcServer::listen(const QString &endpoint)
   if(!m_native->listen(endpoint))return false;
   m_loginCheck.start(100);return true;
 #else
-  return !endpoint.isEmpty() && m_server.listen(endpoint);
+  const auto name = socketName(endpoint);
+  if (name.isEmpty())
+    return false;
+  if (m_server.listen(name))
+    return true;
+  if (m_server.serverError() != QAbstractSocket::AddressInUseError)
+    return false;
+  // A crashed core leaves its socket file behind; replace it only when nobody answers.
+  QLocalSocket probe;
+  probe.connectToServer(name);
+  if (probe.waitForConnected(200))
+    return false;
+  QLocalServer::removeServer(name);
+  return m_server.listen(name);
 #endif
 }
 PrivateIpcServer::~PrivateIpcServer()
@@ -179,7 +204,7 @@ void SessionClient::connectNow()
     if(!sameLogin(&m_socket,false)){m_socket.abort();return;}
     m_verified=true;m_reader={};Q_EMIT connectedChanged(true);
 #else
-    m_socket.connectToServer(m_endpoint);
+    m_socket.connectToServer(socketName(m_endpoint));
 #endif
   }
 }
