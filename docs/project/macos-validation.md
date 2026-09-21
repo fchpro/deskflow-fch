@@ -1,6 +1,8 @@
 # macOS local validation, 2026-09-21
 
-## Installed result
+## Earlier automatic-acceptance installation
+
+Superseded by the coordinated native follow-up below.
 
 - `/Applications/Deskflow.app`: automatic stream acceptance enabled in MainWindow; embedded launchers/viewers retain manual defaults.
 - Existing Developer ID team `5KGS79Q5Y7`; hardened runtime; strict/deep signature verification passed. Not notarized during this task.
@@ -86,3 +88,59 @@ Prior Mac logs already recorded recovery/viewer/TLS/audio/file failures. This ta
 - `deploy/mac/streaming-install.cmake.in`: permanent plugin-directory/signing correction.
 - `PROJECT.md`, `docs/project/customizations.md`, `streaming.md`, `streaming-packaging.md`, `macos-validation.md`: behavior, commands, installation results and limitations.
 - Export only: `temp/existing-mac-clipboard-fix.patch`. No clipboard source edits.
+
+## Coordinated native follow-up, 2026-09-21
+
+### Source and installation
+
+- User explicitly authorized Git/build/install on this Mac for this task. Reviewed local edits committed as `53932863f`; merged `origin/fch` through `6f7e16f0d`, including Windows fix `f98547bf0`, without resetting or overwriting work. Integrated source pushed as `e126d7fad7ca96a023d21c25c2d9638507143255`.
+- Duplicate acceptance changes merged once. Preserved native CoreAudio default-output test and permanent plugin-directory packaging fix. No protected test assertions rewritten.
+- `cmake --build build --target build-validation -j8` passed with existing Qt6.10.3/GStreamer1.28.7 and `BUILD_STREAMING=ON`.
+- Installed `/Applications/Deskflow.app`; core reports `v1.26.0.9999 (e126d7fa)`. Signed with existing Developer ID/hardened runtime. Strict/deep signature check passed. Audited 88 Mach-O files and 642 dependency edges with zero external non-system/missing dependencies. Twelve private media factories loaded with a fresh registry.
+- Backups: `/Applications/Deskflow-pre-native-20260921.app` and `.ltemp/native-20260921/application-backup/Deskflow.app`. Settings/certificate/trust under `.ltemp/native-20260921/settings-before` compare byte-identically after restoration/install. Temporary Debug/file logging restored to Info/file-disabled.
+- Installed GUI observed TLS1.3 reconnection before and after sleep. Existing missing `en` layout/cursor warnings remain. Physical input correctness was not independently verified.
+- Installed source selector directly reports `Enable Screen Recording for Deskflow in System Settings`; no sources enumerated. After wake the streaming label reports `peerDisconnected` despite ordinary input TLS being connected. No permission grant, private adapter, helper or entitlement added. No operational streaming/decoded-frame claim.
+
+### Executed validation
+
+| Check | Native result |
+|---|---|
+| StreamingCaptureLifetimeTests | 4 passed / 0 failed / 0 skipped; 2 ms |
+| StreamingSenderTests launcherStructure | 3 passed / 0 failed / 0 skipped; 297 ms; actual Mac capture adapter teardown no longer crashes |
+| StreamingAutoAcceptTests | 7 passed / 0 failed / 0 skipped; 335 ms; CoreAudio default matched |
+| Quick CTest selection | 40/48 passed; 91.21 s; fails the 30-second budget |
+
+Quick failures retained separately in `.ltemp/native-20260921/quick-failures.txt`, with complete output in `quick-check.txt`:
+
+- I18NTests: four language/native-name selection expectations.
+- StreamingRecoveryTests: receiver transport setup abort.
+- StreamingViewerQuickTests: three workflows obtain no decoded frames.
+- StreamingSenderTests: `realFileWorkflow` does not obtain ten decoded frames. `launcherStructure` now passes; no teardown SIGSEGV.
+- OSXKeyStateTests: two native key-release assertions.
+- StreamingTransportTests: TLS negotiation expectation and encrypted fixture handshake abort.
+- StreamingAudioTests: common-clock tolerance and protected raw-backend-error expectation.
+- StreamingFileTests: generated media fixture abort.
+
+These remain failures, not skipped/passing coverage. Exhaustive suite unrun. Quick clipboard guard restored and byte-verified all saved representations. Rendered acceptance screenshot inspected: no Accept button; explicit unverifiable-lock error; no video.
+
+### Real screenshot clipboard evidence
+
+- Used an owned native 800×500 window with opaque blue contents, rounded corners and native shadow. `/usr/sbin/screencapture -x -c -l <owned-window-id>` and `-R <owned-interior-rectangle>` exercised the system screenshot-to-clipboard path. No pre-encoded PNG/TIFF was substituted.
+- A separate automated Control–Command–Shift–4 attempt did not change the clipboard; it is not claimed as a successful hotkey reproduction. Command-path screenshots succeeded. Source and decoded images inspected.
+- Actual `OSXClipboard::synchronize/open/has/get/close` and `OSXClipboardBMPConverter::fromIClipboard` ran against the screenshot pasteboard. Offered formats included public.png, public.tiff, com.microsoft.bmp, HEIC/AVIF and other OS image conversions; complete type list in `clipboard-screenshot.txt`. BMP fetch status was 0.
+
+| Case | OS BMP bytes | Export DIB bytes | Dimensions | Alpha range |
+|---|---:|---:|---|---|
+| Window with shadow | 9,397,386 | 9,397,372 | 1824 × -1288 | 0–255 |
+| Opaque interior | 4,256,138 | 4,256,124 | 1400 × -760 | 255–255 |
+
+Both have 124-byte BITMAPV5HEADER, 32 bpp, BI_BITFIELDS=3, masks `00ff0000/0000ff00/000000ff/ff000000`, BMP pixel offset138 and DIB pixel offset124. Rewrapped BMP byte sizes match original BMP sizes; both decode successfully with correct owned contents. Negative height is top-down storage.
+
+- Installed client, with temporary Debug logging, recorded at 11:28:56 local time: `sending clipboard 0 seqnum=0`, `sent clipboard size=9397384`, then the same for clipboard1. This is exactly the 9,397,372-byte bitmap plus 12 bytes of clipboard framing. Source inspection shows this log is emitted after enqueueing all ClipboardSending chunks; it is not a wire-delivery acknowledgement. No limit warning. Export happened while inactive; no focus-return event occurred during this capture, so that particular transition remains unverified.
+- Mac saved receive setting is128 MiB. Windows coordinator reports128 MiB. Source negotiates the server send limit in KiB and checks bytes against limit×1024. The installed Info/Debug logs do not expose the numeric negotiated value; it was not read from live memory. This sample was demonstrably admitted and sent.
+- Original clipboard was restored and byte-verified after command captures, quick checks and the send probe. No clipboard content or credentials committed. No new converter fix: the existing source works for these screenshot cases.
+- Missing Windows evidence: corresponding receive/assemble log for clipboard0/1 and9,397,384-byte payload; advertised CF_DIB/CF_DIBV5/CF_BITMAP formats; Win32 SetClipboardData/GetLastError outcomes; normalization result with original124-byte/top-down/32-bit BI_BITFIELDS metadata; destination application's paste outcome. A local decode and Mac send log do not establish cross-device paste.
+
+### Artifact boundaries
+
+All new probes/logs/fixtures/backups are under `.ltemp/native-20260921`, verified excluded by `git check-ignore` through local `.git/info/exclude`. Nothing there is staged. Lock evidence and proposed policy are in the item-10 lock decision document. Initial dependency-audit parser failure is retained separately; it mistakenly counted universal-architecture headers and dylib IDs as dependencies. Corrected audit selects arm64 and excludes LC_ID_DYLIB; no package mutation was used to silence it.

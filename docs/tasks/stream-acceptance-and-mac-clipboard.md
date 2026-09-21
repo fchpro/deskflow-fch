@@ -37,3 +37,11 @@
 - Build changed app/test targets; focused auto-accept integration and rendered viewer.
 - Run documented hidden quick check against rebuilt consumers once final changes are ready; retain known failures accurately.
 - Native macOS build and screenshot transfer need the Mac agent; Windows cannot verify native pasteboard APIs.
+
+## Mac coordinated follow-up, 2026-09-21
+
+- Integrated Windows source plus preserved Mac fixes/tests pushed as `e126d7fad7ca96a023d21c25c2d9638507143255`; signed installed core identifies `e126d7fa`.
+- All consumers built. Native lifetime4/4, launcherStructure3/3, acceptance7/7 pass. Quick40/48 in91.21s; same eight failing suites, but sender failure is now decoded-frame workflow rather than teardown crash. Exact failures and package/installation evidence: `docs/project/macos-validation.md`.
+- Lock/unlock and real sleep/wake observed. Private key absent/true/absent while public on-console stays true. Session-switch remains pending. Concrete build-specific proposal and limitations recorded in `item-10-macos-lock-decision.md`; no lock-policy change made.
+- Real system screenshot clipboard cases include transparent shadow9,397,372-byte and opaque4,256,124-byte top-down32-bit V5 DIBs. Both convert/decode. Installed client logged9,397,384-byte sends on clipboard0/1; focus-return transition and Windows receive/paste still unverified. Existing BMP patch not reapplied. Windows receive/format/SetClipboardData evidence is the next missing boundary.
+- App/settings/certificate/trust backed up; settings/trust restored byte-identically. Signed bundle and private runtime verified. Installed app reconnects ordinary TLS after sleep; source discovery reports missing Screen Recording permission and streaming peer label remains disconnected after wake. No decoded frames or operational streaming claimed.
