@@ -1,13 +1,16 @@
 # SPDX-License-Identifier: MIT
 set(bundle "${CMAKE_INSTALL_PREFIX}/@CMAKE_PROJECT_PROPER_NAME@.app")
 set(binary_dir "${bundle}/Contents/MacOS")
-set(plugin_dir "${binary_dir}/gstreamer-1.0")
+set(plugin_dir "${bundle}/Contents/PlugIns/gstreamer")
 file(GLOB previous_plugins "${plugin_dir}/*")
 if(previous_plugins)
   message(FATAL_ERROR "Use a fresh macOS staging directory for streaming packaging")
 endif()
 set(plugin_sources "@STREAMING_PLUGIN_FILES@")
 file(COPY ${plugin_sources} DESTINATION "${plugin_dir}")
+# codesign treats a physical dotted directory as a nested bundle. Keep plugins
+# in PlugIns and retain the runtime's relative lookup through a symlink.
+file(CREATE_LINK "../PlugIns/gstreamer" "${binary_dir}/gstreamer-1.0" SYMBOLIC)
 file(COPY "@STREAMING_SCANNER_DIR@/gst-plugin-scanner" DESTINATION "${binary_dir}")
 file(COPY "@STREAMING_MEDIA_LICENSE_DIR@/" DESTINATION "${bundle}/Contents/Resources/licenses/gstreamer")
 file(COPY "@CMAKE_SOURCE_DIR@/deploy/licenses/qt-6.10.3" DESTINATION "${bundle}/Contents/Resources/licenses")

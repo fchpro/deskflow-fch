@@ -57,6 +57,7 @@ Personal fork of [Deskflow](https://github.com/deskflow/deskflow), an open-sourc
 | `docs/dev/protocol_reference.md` | Network protocol | When touching client/server/net |
 | `docs/project/customizations.md` | List of personal customizations | Before any edit or upstream update |
 | `docs/project/streaming-packaging.md` | Private media runtime, native package prerequisites, notices and validation matrix | Before packaging or diagnosing installed streaming |
+| `docs/project/macos-validation.md` | Local toolchain, automatic acceptance install and outstanding Mac checks | Before Mac builds or acceptance work |
 | `docs/project/streaming.md` | Streaming/media architecture, control ownership and native permission contracts, dependencies, validation and platform limits | Before streaming implementation or validation |
 
 ## Unfinished Tasks and Worklists
@@ -137,3 +138,22 @@ Unit tests (Qt Test): 56 C++ test binaries plus one Python package suite / 60 CT
 - FileSource timestamps are media stream time derived from each GStreamer sample segment; raw decoder PTS can contain MP4 reorder/edit-list offsets. `StreamingFileTimelineTests` checks both decoded tracks at startup and seek in quick/exhaustive CTest.
 
 - Post-first-frame recovery: authenticated newer video identities without decoded progress for3s terminate both peers with an actionable restart message. Static/paused identities remain valid; initial timeout and total-video-blackhole liveness are separate. `StreamingDecodeProgressPolicyTests` joins quick; `StreamingDecodeProgressTests` joins exhaustive with real selective encrypted-video loss, bilateral Stop/cleanup and same-instance reuse. Current quick/exhaustive selections contain53/60 registrations.
+
+### Local macOS installation, 2026-09-21
+
+- Installed `/Applications/Deskflow.app` from `temp/stage-1110/Deskflow.app` after repairing incomplete packaging. GUI/core contain the shortened private-IPC endpoint fix. Embedded version remains `1.26.0.9999 (f9cf7f45)`; it does not identify the later IPC edit.
+- Private GStreamer 1.28.7 dependencies bundled using the committed packaging script. Local packaging correction: plugins live in `Contents/PlugIns/gstreamer`, with `Contents/MacOS/gstreamer-1.0` as a relative symlink. The dotted directory name was rejected as an invalid bundle by codesign. The 2026-09-21 automatic-acceptance update incorporates this correction into the packaging template.
+- Nested code and final bundle signed with the existing Developer ID identity, team `5KGS79Q5Y7`, with hardened runtime. Strict/deep signature validation and dependency closure for 88 Mach-O files passed; no notarization claim.
+- Original app retained at `/Applications/Deskflow-pre-20260921.app` and `temp/backups/2026-09-21/Deskflow.app`. Settings/certificate backup: `temp/backups/2026-09-21/settings`. Certificate remains byte-identical; settings were subsequently updated for TLS as recorded below.
+- GUI/core restarted and connected to `192.168.137.1:24800`. Private IPC connected and delivered `peerUnsupportedOrInsufficientTrust`. Initial installation kept TLS disabled; the subsequent authorized TLS change below supersedes that coordination state. Authenticated cross-device streaming remains unverified.
+- Twelve private media factories loaded successfully with a fresh registry and packaged scanner. Logs: `temp/proof-of-work/install-2026-09-21/`. CTest quick/full checks were not run because the local build/test directory no longer exists. No protected tests changed.
+
+- Subsequent TLS configuration, 2026-09-21: enabled `security/tlsEnabled` and retained `security/checkPeerFingerprints=true`. Added Windows SHA-256 `332081de50450a3eae242c326255a1ff0664aa3e423ab6be81f23160ebe6bf81` to `~/Library/Deskflow/tls/trusted-servers` using `v2:sha256:<hex>` format while preserving existing contents. Pre-change settings backup: `temp/backups/tls-2026-09-21/settings`.
+- Restart established the ordinary client connection to `192.168.137.1` with TLSv1.3. No connection error observed. Warnings: missing remote `en` keyboard layout and cursor may not be visible. Physical Windows keyboard/mouse delivery still needs user confirmation because this session has no Windows input control. The separate streaming UI still reports `peerUnsupportedOrInsufficientTrust`. Local configuration/certificate checks: `temp/proof-of-work/tls-2026-09-21/verification.txt`.
+
+### macOS automatic acceptance update, 2026-09-21
+
+- MainWindow enables automatic incoming acceptance after the viewer becomes visible. Embedded launchers/viewers remain manual by default. Audio selects only a native default flagged by the OS; absent defaults require user selection. Duplicate Accept is suppressed; Stop before broker acknowledgement sends Stop. Control grants and authenticated broker admission remain separate.
+- Rebuilt all application/test consumers with Qt 6.10.3 and the existing user-local GStreamer 1.28.7 SDK, BUILD_STREAMING=ON. Installed Developer ID signed `/Applications/Deskflow.app`; ordinary client and compatible streaming connection restored. Settings/certificate/trust byte-identical to backup.
+- Backup: `/Applications/Deskflow-pre-auto-accept-20260921.app` and `temp/backups/auto-accept-20260921/`. New focused suite: 7 Qt results pass, including native CoreAudio default UID. Mac quick selection: 39/47 pass; eight failures/aborts and 170.26 s duration remain explicit blockers. No protected tests changed. Commands, failures and installed evidence: `docs/project/macos-validation.md`.
+- Existing clipboard converter fixes preserved. Owned PNG/TIFF conversion and clipboard restoration passed; cross-device screenshot delivery is still unverified. Local receiver media startup remains blocked by unavailable verifiable macOS lock state. Automatic viewer/Accept behavior was verified through isolated real IPC/broker, not a Windows-origin live stream.

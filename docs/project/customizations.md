@@ -181,3 +181,9 @@ Empty/unset disables the swap. Use the client's canonical screen name. Keep the 
 - FileSource converts decoded video/PCM sample PTS through the GStreamer segment into media stream time. This fixes MP4 reorder/edit-list offsets in playback and diagnostic frame timestamps; initial and seek positions have real H264/AAC integration coverage.
 
 - Streaming recovery ends observed authenticated-source progress without decoded frames after3s through bilateral Stop. Static/paused sources remain valid; full video blackhole liveness and real-device/reference performance remain acceptance limitations. See streaming.md and active worklist item12.
+
+
+## Paired-computer automatic stream acceptance
+
+- MainWindow opts in; reusable launchers/viewers default to manual mode. Viewer opens before Accept; audio uses the native default output or waits for selection. Stop remains available and desktop control still needs a separate grant.
+- Windows-tested patch applied on Mac without changing existing clipboard converters. CoreAudio default UID and isolated broker/IPC acceptance tests pass. Installed app reconnects over TLS 1.3; native media and cross-device acceptance remain limited by the macOS session-state check. See `macos-validation.md`.

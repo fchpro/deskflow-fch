@@ -85,10 +85,20 @@ QVector<AudioEndpoint> audioOutputEndpoints(QString &error)
   if (SUCCEEDED(hr)) hr = enumerator->EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE, &collection);
   UINT count = 0;
   if (SUCCEEDED(hr)) hr = collection->GetCount(&count);
+  QString defaultId;
+  ComPtr<IMMDevice> defaultDevice;
+  if (enumerator && SUCCEEDED(enumerator->GetDefaultAudioEndpoint(eRender, eMultimedia, &defaultDevice))) {
+    LPWSTR id = nullptr;
+    if (SUCCEEDED(defaultDevice->GetId(&id))) {
+      defaultId = QString::fromWCharArray(id);
+      CoTaskMemFree(id);
+    }
+  }
   for (UINT i = 0; SUCCEEDED(hr) && i < count; ++i) {
     ComPtr<IMMDevice> device; LPWSTR id = nullptr;
     if (FAILED(collection->Item(i, &device)) || FAILED(device->GetId(&id))) continue;
     AudioEndpoint entry{QString::fromWCharArray(id), {}};
+    entry.isDefault = entry.id == defaultId;
     CoTaskMemFree(id);
     ComPtr<IPropertyStore> properties;
     PROPVARIANT name; PropVariantInit(&name);
@@ -99,7 +109,7 @@ QVector<AudioEndpoint> audioOutputEndpoints(QString &error)
     result.push_back(entry);
   }
   if (FAILED(hr)) error = "Could not enumerate active Windows render endpoints";
-  collection.Reset(); enumerator.Reset();
+  defaultDevice.Reset(); collection.Reset(); enumerator.Reset();
   if (SUCCEEDED(com)) CoUninitialize();
 #else
   return nativeAudioEndpoints(error);

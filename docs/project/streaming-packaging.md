@@ -5,7 +5,7 @@
 | Surface | Implemented | Acceptance |
 |---|---|---|
 | Windows x64 install / portable package | Qt6.10.3, GStreamer1.28.7 plugins/scanner and DLL closure | Isolated local install, TLS, VP8/Opus, H.264/AAC file decoding verified; clean OS/real-device acceptance pending |
-| macOS app bundle | ScreenCaptureKit description, curated plugins/scanner, BundleUtilities relocation, final ad-hoc signing | Source only; native configure/build/package/signature/TCC tests unrun |
+| macOS app bundle | Private SDK closure and scanner; local Developer ID signed install | 2026-09-21 repaired staging: signature/dependency/media-factory/IPC checks passed; capture/TCC/cross-device acceptance pending |
 | Native Linux DEB/RPM/Arch | Required factory inspection and native package-owner dependency generation | Source only; native builds/package installation unrun |
 | Flatpak streaming | No supported streaming sandbox contract | Direct PipeWire/process identities/login1 requirements unresolved; existing Flatpak remains streaming OFF |
 
@@ -140,3 +140,24 @@ Sources: [GStreamer runtime discovery](https://gstreamer.freedesktop.org/documen
 [PipeWire access](https://docs.pipewire.org/page_access.html).
 
 File diagnostics report segment-converted media time. H264 reorder and AAC edit-list offsets make raw decoder PTS unsuitable as file timestamps; generated reference images must use the reported media time. `StreamingFileTimelineTests` covers video/PCM startup and500ms seek with actual decoders.
+
+## macOS local installation evidence, 2026-09-21
+
+See PROJECT.md, Local macOS installation, for exact backup paths and validation limits.
+The staged binaries include the shortened IPC names but retain the older embedded git version.
+The committed packaging script copied the SDK dependency closure. Signing then required moving
+plugins to `Contents/PlugIns/gstreamer` and symlinking `Contents/MacOS/gstreamer-1.0` to that directory.
+The dotted physical directory was interpreted as an invalid nested bundle. The automatic-acceptance update now incorporates this correction in the packaging template.
+All nested code and the bundle were signed with the existing Developer ID team and hardened runtime.
+Strict/deep verification passed. Twelve media factories loaded with the packaged scanner and a new
+private registry. Live GUI/core IPC worked and ordinary client connection was established.
+The initial install kept TLS disabled. The subsequent authorized configuration enabled TLS and fingerprint checking; the ordinary input connection established TLSv1.3, while streaming still reported `peerUnsupportedOrInsufficientTrust`. Device capture, cross-device
+streaming and notarization are not established by these checks. The removed local build directory
+prevented running CTest. Historical unrun-platform statements above describe earlier Windows work.
+
+
+The automatic-acceptance build on 2026-09-21 used the corrected template directly in a fresh
+`temp/auto-accept-install` stage. Developer ID signing, strict/deep signature verification,
+88-file Mach-O dependency closure and twelve private media factory checks passed. Installed
+`/Applications/Deskflow.app` reconnected over TLS 1.3 and streaming reports a compatible peer.
+See `macos-validation.md` for commands, backups, failing tests and unresolved native acceptance.

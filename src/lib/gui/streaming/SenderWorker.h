@@ -54,6 +54,7 @@ private:
   bool m_stopping = false, m_previewPending = false;
   bool m_startingCapture = false;
   bool m_receiving = false, m_viewerPending = false;
+  bool m_acceptSent = false;
   QJsonObject m_playback;
   QString m_controlLease;
   qint64 m_controlSequence=0;

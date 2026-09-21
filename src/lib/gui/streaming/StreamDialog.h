@@ -31,6 +31,6 @@ private:
 class StreamLauncher : public QWidget {
   Q_OBJECT
 public:
-  explicit StreamLauncher(SenderController *controller, QWidget *parent = nullptr);
+  explicit StreamLauncher(SenderController *controller, QWidget *parent = nullptr, bool automaticAcceptance = false);
 };
 } // namespace deskflow::gui

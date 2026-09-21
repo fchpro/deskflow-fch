@@ -50,7 +50,8 @@ private:
 class StreamViewer : public QDialog {
   Q_OBJECT
 public:
-  explicit StreamViewer(SenderController *, const QJsonObject &offer, QWidget *parent = nullptr);
+  explicit StreamViewer(SenderController *, const QJsonObject &offer, QWidget *parent = nullptr,
+    bool automaticAcceptance = false);
   void toggleFullscreen();
 protected:
   bool event(QEvent *) override;
@@ -62,5 +63,6 @@ private:
   PlaybackPanel *m_playback;
   QPushButton *m_fullscreen;
   bool m_live = true;
+  bool m_autoAcceptRequested = false;
 };
 } // namespace deskflow::gui

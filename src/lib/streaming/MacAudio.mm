@@ -98,6 +98,12 @@ quint64 nativeAudioProcessBirth(quint32 pid)
 QVector<AudioEndpoint> nativeAudioEndpoints(QString &error)
 {
   QVector<AudioEndpoint> result;
+  AudioDeviceID defaultDevice = kAudioObjectUnknown;
+  AudioObjectPropertyAddress defaultAddress{kAudioHardwarePropertyDefaultOutputDevice,
+    kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain};
+  UInt32 defaultBytes = sizeof(defaultDevice);
+  if (AudioObjectGetPropertyData(kAudioObjectSystemObject, &defaultAddress, 0, nullptr,
+        &defaultBytes, &defaultDevice) != noErr) defaultDevice = kAudioObjectUnknown;
   for (auto id : devices()) {
     AudioObjectPropertyAddress address{kAudioDevicePropertyStreams, kAudioDevicePropertyScopeOutput, kAudioObjectPropertyElementMain};
     UInt32 bytes = 0;
@@ -106,7 +112,7 @@ QVector<AudioEndpoint> nativeAudioEndpoints(QString &error)
     address = {kAudioObjectPropertyName, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain};
     CFStringRef name = nullptr; bytes = sizeof(name);
     if (AudioObjectGetPropertyData(id, &address, 0, nullptr, &bytes, &name) != noErr || !name) continue;
-    result.push_back({identity, QString::fromNSString((__bridge NSString *)name)}); CFRelease(name);
+    result.push_back({identity, QString::fromNSString((__bridge NSString *)name), id == defaultDevice}); CFRelease(name);
   }
   if (result.isEmpty()) error = "No accessible CoreAudio render device";
   return result;

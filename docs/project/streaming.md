@@ -39,7 +39,7 @@ Component paths:
 | Path/component | Responsibility |
 |---|---|
 | `src/lib/streaming/` | implemented framing/session broker/TLS/private IPC/core service plus native capture/frame plumbing; VP8/Opus WebRTC transport/telemetry |
-| `src/lib/gui/streaming/` | Stream dialog, explicit receiver acceptance, sender status, viewer, source selection and playback commands |
+| `src/lib/gui/streaming/` | Stream dialog, automatic or explicit receiver acceptance, sender status, viewer, source selection and playback commands |
 | `src/lib/net/SecureSocket.cpp` | accepted input exporter publication and synchronous binding revocation; Client/Server activate only after input handshake |
 | `src/unittests/streaming/` | focused new tests; do not alter protected existing master tests |
 
@@ -315,3 +315,13 @@ Quick/exhaustive registered tests: `ctest --test-dir build/src/unittests --outpu
 - Initial admission uses the existing first-frame timeout. Paused/static sources are valid; a total video blackhole supplies no newer authenticated identity and remains separate ICE/network-liveness acceptance.
 - Build `StreamingDecodeProgressPolicyTests StreamingDecodeProgressTests`; quick includes13 deterministic policy rows, exhaustive adds7 real broker/consent/DTLS endpoint rows including selective marker-packet loss, peer Stop, cleanup, exit status and same-instance reuse. Every asserted behavior has independent fault/restoration proof in item12.
 - Same-host owned160x96 file/PCM cycle/endurance diagnostics exercise actual private IPC/broker/DTLS. They do not establish native capture/control, physical A/V offset/drift or reference720p/1080p performance. Resource sampling distinguishes controller and receiver; sampled frame/block start timestamps establish decoded timeline continuity only.
+
+
+## Paired-computer automatic acceptance, 2026-09-21
+
+- MainWindow constructs `StreamLauncher(..., true)`. Standalone/embedded launcher and viewer constructors default to manual acceptance.
+- Incoming viewer is shown before its queued acceptance. Current receiving/session/source/state and visible/live checks prevent stale viewers accepting later sessions.
+- `AudioEndpoint::isDefault` comes from Windows eMultimedia or CoreAudio default-output identity. Automatic audio selects only that enumerated endpoint; without one, the viewer requests a selection. Worker revalidates device availability before Accept.
+- `m_acceptSent` prevents duplicate Accept and makes immediate Stop send Stop rather than Decline while broker acknowledgement is pending. Cleanup resets the flag.
+- TLS, fingerprint trust, broker checks, Stop and separate desktop-control grants are unchanged. Auto-accept does not bypass native session/privacy admission.
+- Mac build/install and focused/native default verification passed. The real isolated viewer opens without Accept but media startup is refused by the existing macOS lock-state check. See `macos-validation.md` for the eight quick-check failures and remaining cross-device acceptance.
