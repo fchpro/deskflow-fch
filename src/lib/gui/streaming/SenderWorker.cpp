@@ -10,6 +10,12 @@
 
 namespace deskflow::gui {
 using namespace streaming;
+SenderWorker::~SenderWorker()
+{
+  // Native capture destructors can emit statusChanged from stop(). Member
+  // teardown must not re-enter this worker through its capture observer.
+  if (m_capture) disconnect(m_capture.get(), nullptr, this, nullptr);
+}
 void SenderWorker::publish() {
   if(m_session.isEmpty()){m_inventory.remove("session");m_inventory.remove("source");m_inventory.remove("state");}
   else {m_inventory["session"]=m_session;m_inventory["source"]=m_source;m_inventory["state"]=m_state;}

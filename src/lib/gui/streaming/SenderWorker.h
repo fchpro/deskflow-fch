@@ -16,7 +16,9 @@ class SenderWorker : public QObject {
   friend class StreamingSenderTests;
   friend class StreamingViewerTests;
   friend class StreamingRecoveryTests;
+  friend class StreamingCaptureLifetimeTests;
 public:
+  ~SenderWorker() override;
   void refresh();
   void connection(bool connected);
   void receive(const QJsonObject &frame);
