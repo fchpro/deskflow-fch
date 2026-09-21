@@ -21,6 +21,7 @@
 - Separate sender SIGSEGV: MacCapture destructor emits statusChanged while worker members are being destroyed. Added SenderWorker destructor disconnect plus a new focused lifetime test; native rerun pending.
 - Windows follow-up: all app/test consumers built; lifetime regression4/4 Qt results; quick53/55 in29.04s with only existing foreground/audio-expectation failures. Package audit passed29 plugins/502 dependency edges/102 PE files. Installed at existing dist/2026-09-16; immediately previous package preserved in .ltemp/package-before-capture-lifetime. Evidence .ltemp/proof-of-work/mac-followup/. No protected test edits; full/native Mac suite unrun here.
 - Next: integrate shared source through Git and reproduce the remaining native lock/clipboard failures without bypassing the lock policy. Return native changes through Git for Windows integration.
+- Windows source pushed to origin/fch as f98547bf0cc82bb3c8c1a84dd3d733c9da6dfcee. Working input/signaling reconnected after installation. Mac follow-up prompt is .ltemp/MAC-NEXT-STEPS.txt; it requests safe integration, native crash rerun, bounded lock validation and actual screenshot-path clipboard evidence. No new lock contract has been approved or implemented.
 
 ## Mac-to-Windows screenshot clipboard — investigating
 
