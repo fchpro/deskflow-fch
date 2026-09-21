@@ -50,6 +50,7 @@ if(WIN32)
     MSWindowsHook.h
     MSWindowsKeyState.cpp
     MSWindowsKeyState.h
+    MSWindowsMouseMotion.h
     MSWindowsPowerManager.cpp
     MSWindowsPowerManager.h
     MSWindowsProcess.cpp

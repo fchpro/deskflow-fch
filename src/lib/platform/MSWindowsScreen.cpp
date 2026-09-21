@@ -27,6 +27,7 @@
 #include "platform/MSWindowsEventQueueBuffer.h"
 #include "platform/MSWindowsForegroundWatcher.h"
 #include "platform/MSWindowsKeyState.h"
+#include "platform/MSWindowsMouseMotion.h"
 #include "platform/MSWindowsPauseToast.h"
 #include "platform/MSWindowsScreenSaver.h"
 
@@ -1253,12 +1254,15 @@ bool MSWindowsScreen::onMouseButton(WPARAM wParam, LPARAM lParam)
 //   example)
 bool MSWindowsScreen::onMouseMove(int32_t mx, int32_t my)
 {
-  // compute motion delta (relative to the last known
-  // mouse position)
-  int32_t x = mx - m_xCursor;
-  int32_t y = my - m_yCursor;
+  // Local events track the preceding position. Relayed events are suppressed
+  // by the hook and must use the parked center even when several are queued.
+  int32_t x = windowsMouseDelta(mx, m_xCursor, m_xCenter, m_isOnScreen);
+  int32_t y = windowsMouseDelta(my, m_yCursor, m_yCenter, m_isOnScreen);
 
-  LOG_VERBOSE("mouse move - motion delta: %+d=(%+d - %+d),%+d=(%+d - %+d)", x, mx, m_xCursor, y, my, m_yCursor);
+  LOG_VERBOSE(
+      "mouse move - motion delta: %+d=(%+d - %+d),%+d=(%+d - %+d)", x, mx,
+      m_isOnScreen ? m_xCursor : m_xCenter, y, my, m_isOnScreen ? m_yCursor : m_yCenter
+  );
 
   // ignore if the mouse didn't move or if message posted prior
   // to last mark change.

@@ -78,6 +78,15 @@ Small silent popup (bottom-right of work area, ~1 s, no sound, never steals focu
 mouseSendRateHz=250
 ```
 
+### Windows boundary bounce (2026-09-21)
+
+- Symptom: repeated Windows/Mac switches milliseconds apart while moving left into the Mac; captured in the user's clip and `deskflow.log` at 11:36:45–50.
+- Cause addressed: the Windows relay hook suppresses motion. Multiple queued hook positions share the parked center; subtracting the preceding suppressed position can reverse the delta or drop repeated motion before PRE_WARP is dispatched.
+- `MSWindowsScreen::onMouseMove` uses `MSWindowsMouseMotion.h` to subtract the center for remote motion and the previous position for local motion. Existing warp/mark filtering, bogus-motion rejection and coalescing remain.
+- `MSWindowsMouseMotionTests`: queued leftward input at a simulated Mac right boundary with 250 Hz/unlimited sending; repeated input, reversal, both axes and local motion. Run `ctest --test-dir build/src/unittests -R MSWindowsMouseMotionTests --output-on-failure` with the documented DLL PATH.
+- Windows-only change; no Mac update or protocol change. Installed at dist/2026-09-16; prior package retained in .ltemp/package-before-mouse-boundary. Core SHA256 matches rebuilt output; Mac TLS reconnected. Physical intermittent acceptance remains unverified.
+- Validation: build-validation passed; mouse motion/coalescer/control-hook suites passed; hidden quick54/56 in32.56s with the same two documented failing suites (foreground watcher/audio). Requested full suite subsequently ran:60/63 in132.77s; failures MSWindowsForegroundWatcherTests, StreamingMediaTests and StreamingAudioTests. Build-validation then succeeded (up to date), fresh packaging passed29 plugins/502 dependency edges/102 PE files, and the app was reinstalled at the same path. Pre-reinstall package: .ltemp/package-before-full-suite-install. Native cross-device motion replay remains unrun. Evidence: .ltemp/proof-of-work/mouse-boundary/.
+
 ## 4. Clipboard image sharing — larger default size limit
 
 **Problem**: image clipboard sync silently failed. Bitmaps travel as uncompressed 32bpp DIBs, so any screenshot (1685x1116 = 7.5 MB, 2560x1440 = 14.7 MB) exceeded the upstream default limit of 3 MiB. Log showed `WARNING: not sending clipboard data, exceeds limit: 3072 KB`.

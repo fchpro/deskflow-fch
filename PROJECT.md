@@ -90,7 +90,7 @@ Full validation (minutes): `cmake --build build --target build-validation -j12` 
 
 ## Master Tests
 
-Unit tests (Qt Test): 58 C++ test binaries plus one Python package suite / 62 CTest registrations with `BUILD_STREAMING=ON` (25 upstream + 33 fork C++ binaries) under `src/unittests`; includes StreamingControlBoundaryTests, StreamingControlTests, StreamingControlLifecycleTests, StreamingControlHookTests and the extended StreamingControlTransportTests. Run via `ctest` from `build\src\unittests` (see Quick Check for the required PATH). No external master-test project. Previously completed streaming tests remain protected master tests.
+Unit tests (Qt Test): 59 C++ test binaries plus one Python package suite / 63 CTest registrations with `BUILD_STREAMING=ON` (25 upstream + 34 fork C++ binaries) under `src/unittests`; includes StreamingControlBoundaryTests, StreamingControlTests, StreamingControlLifecycleTests, StreamingControlHookTests and the extended StreamingControlTransportTests. Run via `ctest` from `build\src\unittests` (see Quick Check for the required PATH). No external master-test project. Previously completed streaming tests remain protected master tests.
 
 ## Architecture and Workflow Notes
 
@@ -99,6 +99,7 @@ Unit tests (Qt Test): 58 C++ test binaries plus one Python package suite / 62 CT
 - Version is derived from git describe; fallback version is hardcoded in root `CMakeLists.txt`.
 - Fork policy: never commit personal customizations to `master`; that branch must stay clean for upstream syncs.
 - Mouse send-rate limiter (server): `MouseMoveCoalescer`, setting `server/mouseSendRateHz` (default 250, 0 = off); see `docs/project/customizations.md`.
+- Windows boundary bounce: remote mouse deltas use the parked cursor center because the relay hook suppresses motion; queued events must not subtract each other's positions. `MSWindowsMouseMotionTests` joins quick/exhaustive checks. Installed in dist/2026-09-16 on 2026-09-21; backup .ltemp/package-before-mouse-boundary. No Mac changes; intermittent physical acceptance pending. See `docs/project/customizations.md`.
 - Clipboard image sharing: default `server/clipboardSize` raised 3 -> 128 MiB (bitmaps are uncompressed DIBs; screenshots exceeded 3 MiB). Clients enforce receive limit from their own local setting; see `docs/project/customizations.md` section 4.
 - Game/app exclusion feature (Windows server only): see `docs/project/customizations.md` — settings key `server/excludedApps`, watcher `MSWindowsForegroundWatcher` (events + 100 ms poll + pid snapshot + 300 ms resume debounce), hook-level pid guard, motion drop in `MSWindowsScreen`, 1 s watchdog. GUI: foreground label + `Excluded Apps` dialog (process picker with search) in the main window.
 - Left Ctrl/Windows swap (Windows server): `server/leftCtrlSuperSwapScreen` selects one canonical client name; local/right-side keys remain unchanged. Per-event physical modifier snapshots preserve shortcuts without changing the protocol. See `docs/project/customizations.md` section 5.
@@ -141,7 +142,7 @@ Unit tests (Qt Test): 58 C++ test binaries plus one Python package suite / 62 CT
 
 - FileSource timestamps are media stream time derived from each GStreamer sample segment; raw decoder PTS can contain MP4 reorder/edit-list offsets. `StreamingFileTimelineTests` checks both decoded tracks at startup and seek in quick/exhaustive CTest.
 
-- Post-first-frame recovery: authenticated newer video identities without decoded progress for3s terminate both peers with an actionable restart message. Static/paused identities remain valid; initial timeout and total-video-blackhole liveness are separate. `StreamingDecodeProgressPolicyTests` joins quick; `StreamingDecodeProgressTests` joins exhaustive with real selective encrypted-video loss, bilateral Stop/cleanup and same-instance reuse. Current quick/exhaustive selections contain55/62 registrations.
+- Post-first-frame recovery: authenticated newer video identities without decoded progress for3s terminate both peers with an actionable restart message. Static/paused identities remain valid; initial timeout and total-video-blackhole liveness are separate. `StreamingDecodeProgressPolicyTests` joins quick; `StreamingDecodeProgressTests` joins exhaustive with real selective encrypted-video loss, bilateral Stop/cleanup and same-instance reuse. Current quick/exhaustive selections contain56/63 registrations.
 
 - Automatic receiver acceptance checks: build `StreamingAutoAcceptTests`; `ctest --test-dir build/src/unittests -R StreamingAutoAcceptTests --output-on-failure`. Included in quick/exhaustive checks. Covers private IPC/broker automatic Accept and Stop, visible viewer policy and default/missing audio output. Use Qt offscreen/font paths for hidden rendering.
 
