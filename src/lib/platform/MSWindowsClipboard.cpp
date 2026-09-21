@@ -14,6 +14,38 @@
 #include "platform/MSWindowsClipboardHTMLConverter.h"
 #include "platform/MSWindowsClipboardUTF16Converter.h"
 
+namespace {
+HANDLE duplicateV5Bitmap(HANDLE bitmap)
+{
+  const auto size = GlobalSize(bitmap);
+  if (size < sizeof(BITMAPV5HEADER))
+    return nullptr;
+
+  const auto *source = static_cast<const char *>(GlobalLock(bitmap));
+  if (!source)
+    return nullptr;
+
+  DWORD headerSize = 0;
+  memcpy(&headerSize, source, sizeof(headerSize));
+  HANDLE result = nullptr;
+  if (headerSize == sizeof(BITMAPV5HEADER)) {
+    result = GlobalAlloc(GMEM_MOVEABLE, size);
+    auto *target = result ? GlobalLock(result) : nullptr;
+    if (target) {
+      memcpy(target, source, size);
+      GlobalUnlock(result);
+    } else {
+      if (result)
+        GlobalFree(result);
+      result = nullptr;
+      LOG_WARN("failed to allocate V5 clipboard bitmap");
+    }
+  }
+  GlobalUnlock(bitmap);
+  return result;
+}
+} // namespace
+
 //
 // MSWindowsClipboard
 //
@@ -99,7 +131,14 @@ void MSWindowsClipboard::add(Format format, const std::string &data)
       HANDLE win32Data = converter->fromIClipboard(data);
       if (win32Data != nullptr) {
         LOG_DEBUG("add %d bytes to clipboard format: %d", data.size(), format);
+        // Windows advertises CF_DIBV5 for CF_DIB but cannot synthesize it
+        // from a macOS V5 BITFIELDS DIB. Publish the matching format explicitly,
+        // retaining CF_DIB for existing consumers and all V5 pixels/colour data.
+        // Inspect the converted handle so repaired legacy DIBs stay CF_DIB only.
+        HANDLE v5Data = format == Format::Bitmap ? duplicateV5Bitmap(win32Data) : nullptr;
         m_facade->write(win32Data, converter->getWin32Format());
+        if (v5Data)
+          m_facade->write(v5Data, CF_DIBV5);
         isSucceeded = true;
         break;
       } else {

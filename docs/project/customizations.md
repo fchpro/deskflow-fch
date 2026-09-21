@@ -103,6 +103,12 @@ clipboardSize=128
 
 **Limitation**: a client enforces its *receive* limit from its own local `server/clipboardSize` setting (default 3 MiB on stock builds since July 2026). For PC -> Mac images, set `clipboardSize=128` under `[server]` in the Mac's `~/Library/Deskflow/Deskflow.conf` and restart Deskflow there. Mac -> PC needs no Mac change.
 
+### Windows native V5 clipboard publication
+
+- Complete Mac V5 bitmaps are explicitly published as CF_DIBV5 as well as CF_DIB. Windows advertises synthesized V5 for a CF_DIB-only Mac BITFIELDS image but native retrieval can fail; WPF reports CLIPBRD_E_BAD_DATA.
+- Duplicate the converted handle before transferring ownership. Preserve V5 pixels, alpha, masks and colour data; repaired legacy40-byte DIBs remain unchanged. No Mac update/protocol change.
+- MSWindowsClipboardNativeBitmapTests covers real native format retrieval and decoded RGB pixels for Mac V5, ordinary Windows and legacy repaired DIBs. ChatGPT paste acceptance remains pending; Paint/Claude transfer was user-confirmed.
+
 ## 5. Left Ctrl / Windows swap for one client (Windows server only)
 
 **Behavior**: left Ctrl sends Mac Command; left Windows sends Mac Control. Right Ctrl/Windows, local Windows input, and other clients retain their original mappings.

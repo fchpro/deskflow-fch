@@ -26,7 +26,7 @@
 ## Mac-to-Windows screenshot clipboard — investigating
 
 - User confirms Control–Command–Shift–3/4 (clipboard screenshot), not screenshot-file capture.
-- Windows-to-Mac works; Mac-to-Windows fails to paste.
+- Windows-to-Mac works. User subsequently confirmed Mac screenshots paste into Windows Paint and Claude; ChatGPT paste remains unverified after correction.
 - Windows receive limit is 128 MiB. Current source has older BMP/DIB fixes already present in the installed Windows revision.
 - Mac report: actual OSXClipboard converted owned PNG/TIFF320x180 to valid172840-byte 24bpp BI_RGB DIB; original clipboard restored. These probes did not cover screenshot hotkeys, 32bpp extended DIB or Windows delivery/paste.
 - Supplied existing clipboard patch matches local file blobs exactly (cpp c6d815f4246c37d2905b95a18568475f9179084f, header1f7a175946a14960d60adbcfb073b671177e45dc). No new clipboard fix to apply. Installed Mac contains it; real screenshot failure cause remains unestablished.
@@ -53,3 +53,13 @@
 - Current Windows clipboard contains Deskflow-owned text/HTML only; it cannot supply the overwritten screenshot's DIB metadata. Read-only native enumeration saved under .ltemp/proof-of-work/windows-clipboard/current-metadata.txt; matching rejection logs in mac-export-rejection.txt.
 - Next reproducible transfer: enter the Mac with the Windows-controlled pointer after reconnection, capture the owned test window to the Mac clipboard, return the pointer to Windows, and retain that image until Windows formats/decoder/paste are inspected. Do not copy the Mac report or restore the original clipboard before that inspection.
 - User approval requested for the documented25F80-only private lock adapter with startup calibration; no approval received or lock-policy edit made at this point. Session-switch validation remains required before activation.
+
+## Windows native bitmap publication, 2026-09-21
+
+- Actual Mac screenshots arrive as complete124-byte V5/32-bit/BI_BITFIELDS DIBs. Deskflow published only CF_DIB; Windows advertised CF_DIBV5 but GetClipboardData returned null. WPF GetImage raised CLIPBRD_E_BAD_DATA and WinForms returned null.
+- Adding the exact same bytes explicitly as CF_DIBV5 made both native decoders return the correct dimensions. A verified unchanged V5-only diagnostic still failed the user's ChatGPT paste test; this native fix is not yet sufficient evidence of a ChatGPT fix. Subsequent tests were confounded by replacement screenshots/text; clipboard sequence tracking detected replacements.
+- MSWindowsClipboard now publishes an independent CF_DIBV5 copy of complete V5 converter output while retaining CF_DIB. Header/masks/alpha/colour data are unchanged. Existing repaired40-byte and ordinary bitmaps retain their publication path. No Mac source/build change is needed.
+- New MSWindowsClipboardNativeBitmapTests exercises real Windows clipboard publication/retrieval of CF_DIBV5, CF_DIB and CF_BITMAP, exact V5 bytes and decoded RGB pixels. Covers healthy Mac V5, ordinary Windows INFOHEADER and repaired legacy Mac header. Existing protected tests unchanged.
+- build-validation passed; quick55/57 in28.36s. Only documented foreground-window and raw-audio-message expectation failures remain. Full suite unrun. Local diagnostic/build/check/package output: .ltemp/proof-of-work/clipboard-v5/.
+- Installed Windows update at dist/2026-09-16; prior package retained at .ltemp/package-before-clipboard-v5. Settings unchanged; input24800 and signaling24801 reconnected to the Mac. Pre-check screenshot restored after clipboard tests. Package audit29 plugins/502 edges/102 PE files passed.
+- Next: verify a newly transferred Mac screenshot in ChatGPT. Do not mark ChatGPT compatibility fixed from native-decoder results alone. No Mac rebuild is needed for this Windows-only change.

@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: MIT
 
 if (WIN32)
+  create_test(NAME MSWindowsClipboardNativeBitmapTests DEPENDS platform LIBS base arch
+    SOURCE MSWindowsClipboardNativeBitmapTests.cpp WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
   create_test(NAME MSWindowsMouseMotionTests DEPENDS platform
     SOURCE MSWindowsMouseMotionTests.cpp WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
   create_test(NAME StreamingControlHookTests DEPENDS platform LIBS base arch app
