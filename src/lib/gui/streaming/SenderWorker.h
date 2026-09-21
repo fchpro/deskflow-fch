@@ -16,7 +16,9 @@ class SenderWorker : public QObject {
   friend class StreamingSenderTests;
   friend class StreamingViewerTests;
   friend class StreamingRecoveryTests;
+  friend class StreamingCaptureLifetimeTests;
 public:
+  ~SenderWorker() override;
   void refresh();
   void connection(bool connected);
   void receive(const QJsonObject &frame);
@@ -54,6 +56,7 @@ private:
   bool m_stopping = false, m_previewPending = false;
   bool m_startingCapture = false;
   bool m_receiving = false, m_viewerPending = false;
+  bool m_acceptSent = false;
   QJsonObject m_playback;
   QString m_controlLease;
   qint64 m_controlSequence=0;

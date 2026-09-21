@@ -16,6 +16,7 @@
 #include <QShortcut>
 #include <QSignalBlocker>
 #include <QSlider>
+#include <QTimer>
 #include <QVBoxLayout>
 
 namespace deskflow::gui {
@@ -120,7 +121,8 @@ void PlaybackPanel::updateState() {
   if (!m_seek->isSliderDown()) m_seek->setValue(state["positionMs"].toInt());
   m_time->setText(timeText(state["positionMs"].toInteger()) + " / " + timeText(state["durationMs"].toInteger()));
 }
-StreamViewer::StreamViewer(SenderController *controller, const QJsonObject &offer, QWidget *parent)
+StreamViewer::StreamViewer(SenderController *controller, const QJsonObject &offer, QWidget *parent,
+    bool automaticAcceptance)
     : QDialog(parent), m_controller(controller) {
   setObjectName("streamViewer"); setWindowTitle(tr("Incoming stream — Deskflow"));
   resize(900, 640); setMinimumSize(420, 360); setModal(false);
@@ -150,6 +152,32 @@ StreamViewer::StreamViewer(SenderController *controller, const QJsonObject &offe
     if (data["session"] == offer["session"] && data["state"] != "awaitingConsent") consent->hide();
   });
   connect(decline, &QPushButton::clicked, this, &StreamViewer::close); layout->addWidget(consent);
+  if (automaticAcceptance) {
+    accept->hide(); decline->hide();
+    for (const auto &entry : offer["endpoints"].toArray()) {
+      const auto device = entry.toObject();
+      if (device["default"].toBool()) {
+        endpoint->setCurrentIndex(endpoint->findData(device["id"].toString()));
+        break;
+      }
+    }
+    auto acceptReady = [this, controller, offer, endpoint, valid] {
+      const auto data = controller->inventory();
+      if (!m_live || m_autoAcceptRequested || !isVisible() || !valid() || !data["receiving"].toBool() ||
+          data["session"] != offer["session"] || data["source"] != offer["source"] ||
+          data["state"] != "awaitingConsent") return;
+      m_autoAcceptRequested = true;
+      controller->accept(endpoint->currentData().toString());
+    };
+    if (!valid()) status->setText(tr("Select an audio output to start the incoming stream."));
+    connect(endpoint, &QComboBox::currentIndexChanged, this, acceptReady);
+    connect(controller, &SenderController::statusChanged, this, [this, controller, offer] {
+      const auto data = controller->inventory();
+      if (data["session"] == offer["session"] && data["source"] == offer["source"] &&
+          data["state"] == "awaitingConsent") m_autoAcceptRequested = false;
+    });
+    QTimer::singleShot(0, this, acceptReady);
+  }
   m_surface = new VideoSurface(this); layout->addWidget(m_surface, 1);
   connect(controller, &SenderController::viewerFrame, this, [this](const QImage &image) { if (m_live) m_surface->setFrame(image); });
   connect(controller,&SenderController::presentedFrame,this,[this,offer](const streaming::VideoFrame &frame){

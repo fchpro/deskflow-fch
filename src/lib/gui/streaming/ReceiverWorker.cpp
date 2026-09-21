@@ -8,7 +8,7 @@ namespace deskflow::gui {
 using namespace streaming;
 void SenderWorker::accept(const QString &endpoint)
 {
-  if (!m_receiving || m_session.isEmpty() || m_state != "awaitingConsent") return;
+  if (!m_receiving || m_acceptSent || m_session.isEmpty() || m_state != "awaitingConsent") return;
 #ifdef DESKFLOW_CAPTURE_GSTREAMER
   if (m_selection["audio"] != "off") {
     QString error; bool found = false;
@@ -17,6 +17,7 @@ void SenderWorker::accept(const QString &endpoint)
   }
 #endif
   m_selection["device"] = endpoint;
+  m_acceptSent = true;
   Q_EMIT outgoing(message("Accept", {{"session", m_session}, {"source", m_source}}));
 }
 void SenderWorker::volume(double gain, bool muted)

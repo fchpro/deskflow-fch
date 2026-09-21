@@ -10,6 +10,12 @@
 
 namespace deskflow::gui {
 using namespace streaming;
+SenderWorker::~SenderWorker()
+{
+  // Native capture destructors can emit statusChanged from stop(). Member
+  // teardown must not re-enter this worker through its capture observer.
+  if (m_capture) disconnect(m_capture.get(), nullptr, this, nullptr);
+}
 void SenderWorker::publish() {
   if(m_session.isEmpty()){m_inventory.remove("session");m_inventory.remove("source");m_inventory.remove("state");}
   else {m_inventory["session"]=m_session;m_inventory["source"]=m_source;m_inventory["state"]=m_state;}
@@ -107,7 +113,7 @@ void SenderWorker::start(const QJsonObject &selection, const QString &requestedS
   m_source = selection["kind"] == "file" ? randomId() : selection["source"].toString();
   m_state = "awaitingConsent";
   m_inventory["busy"] = true; publish();
-  Q_EMIT status(tr("Waiting for receiver consent. No capture or media decoding has started."), true);
+  Q_EMIT status(tr("Connecting to receiver. Capture starts when the receiver is ready."), true);
   QString title = selection["kind"] == "file" ? QFileInfo(selection["path"].toString()).fileName() : QString{};
   for (const auto &source : m_sources) if (source.id == m_source) title = source.title;
   title.remove(QRegularExpression("[\\x00-\\x1f\\x7f]"));
@@ -148,10 +154,10 @@ void SenderWorker::receive(const QJsonObject &frame)
     m_gain = 1.0; m_muted = false;
     QString error; QJsonArray endpoints;
     for (const auto &endpoint : audioOutputEndpoints(error))
-      endpoints.append(QJsonObject{{"id", endpoint.id}, {"name", endpoint.name}});
+      endpoints.append(QJsonObject{{"id", endpoint.id}, {"name", endpoint.name}, {"default", endpoint.isDefault}});
     offer["endpoints"] = endpoints; offer["audioError"] = error;
 #endif
-    Q_EMIT status(tr("Incoming stream. Accept or decline in the receiving viewer."), true);
+    Q_EMIT status(tr("Incoming stream. Preparing the receiving viewer."), true);
     Q_EMIT incoming(offer); return;
   }
   if (type == "State" && data["receiver"] == m_inventory["id"] && m_session.isEmpty()) {
@@ -272,8 +278,8 @@ void SenderWorker::stop(const QString &reason, bool notify)
   m_stopping = true;
   m_controlLease.clear();Q_EMIT controlChanged(false);
   const auto session = m_session, source = m_source;
-  const bool decline = m_receiving && m_state == "awaitingConsent";
-  m_session.clear(); m_state.clear();
+  const bool decline = m_receiving && m_state == "awaitingConsent" && !m_acceptSent;
+  m_session.clear(); m_state.clear(); m_acceptSent = false;
   // Release the core-owned input lease before any native/codec teardown can wait.
   if (notify && !session.isEmpty()) Q_EMIT outgoing(message(decline ? "Decline" : "Stop", {{"session", session}, {"source", source}}));
 #ifdef DESKFLOW_CAPTURE_GSTREAMER

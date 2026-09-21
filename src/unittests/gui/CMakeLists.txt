@@ -26,6 +26,10 @@ create_test(
 )
 
 if(BUILD_STREAMING)
+  create_test(NAME StreamingCaptureLifetimeTests DEPENDS gui SOURCE StreamingCaptureLifetimeTests.cpp
+    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+  create_test(NAME StreamingAutoAcceptTests DEPENDS gui SOURCE StreamingAutoAcceptTests.cpp
+    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
   create_test(NAME StreamingRecoveryTests DEPENDS gui SOURCE StreamingRecoveryTests.cpp
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
   if(WIN32)

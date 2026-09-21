@@ -149,7 +149,7 @@ void StreamDialog::validate()
 {
   const auto data = m_controller->inventory(); const auto choice = selection();
   const auto error = senderSelectionError(data, choice);
-  m_reason->setText(error.isEmpty() ? tr("Start requests receiver consent. No pixels or audio are captured before acceptance.") : error);
+  m_reason->setText(error.isEmpty() ? tr("Start opens the viewer automatically on the connected computer.") : error);
   m_start->setEnabled(error.isEmpty()); m_stop->setEnabled(m_controller->active());
   const bool idle = !data["busy"].toBool();
   m_playbackPermission->setEnabled(idle);
@@ -162,17 +162,17 @@ void StreamDialog::validate()
     QString info = tr("No source selected. Refresh to discover screens and windows.");
     for (const auto &entry : data["sources"].toArray()) {
       const auto value = entry.toObject();
-      if (value["id"] == choice["source"]) info = tr("%1\n%2 × %3 physical pixels\n%4\nLive preview starts only after receiver consent.")
+      if (value["id"] == choice["source"]) info = tr("%1\n%2 × %3 physical pixels\n%4\nLive preview starts when the receiver is ready.")
         .arg(value["title"].toString()).arg(value["width"].toInt()).arg(value["height"].toInt()).arg(value["reason"].toString());
     }
     if (data["sources"].toArray().isEmpty() && !data["discoveryError"].toString().isEmpty()) info += "\n" + data["discoveryError"].toString();
     m_preview->setText(info);
   } else if (!m_controller->active()) {
-    m_preview->setText(m_path.isEmpty() ? tr("Choose a local video file. No decoding starts before receiver consent.")
-      : tr("%1\nFile details and live preview become available after receiver consent.").arg(QFileInfo(m_path).fileName()));
+    m_preview->setText(m_path.isEmpty() ? tr("Choose a local video file. Decoding starts when the receiver is ready.")
+      : tr("%1\nFile details and live preview become available when the receiver is ready.").arg(QFileInfo(m_path).fileName()));
   }
 }
-StreamLauncher::StreamLauncher(SenderController *controller, QWidget *parent) : QWidget(parent)
+StreamLauncher::StreamLauncher(SenderController *controller, QWidget *parent, bool automaticAcceptance) : QWidget(parent)
 {
   setObjectName("streamLauncher");
   auto *layout = new QHBoxLayout(this); layout->setContentsMargins(3, 3, 3, 3);
@@ -194,8 +194,8 @@ StreamLauncher::StreamLauncher(SenderController *controller, QWidget *parent) : 
   };
   connect(controller,&SenderController::inventoryChanged,this,controlState);controlState();
   auto dialog = std::make_shared<QPointer<StreamDialog>>();
-  connect(controller, &SenderController::incoming, this, [this, controller](const QJsonObject &offer) {
-    auto *viewer = new StreamViewer(controller, offer, this); viewer->setAttribute(Qt::WA_DeleteOnClose); viewer->show();
+  connect(controller, &SenderController::incoming, this, [this, controller, automaticAcceptance](const QJsonObject &offer) {
+    auto *viewer = new StreamViewer(controller, offer, this, automaticAcceptance); viewer->setAttribute(Qt::WA_DeleteOnClose); viewer->show();
   });
   connect(launch, &QPushButton::clicked, this, [this, controller, dialog] {
     if (!*dialog) *dialog = new StreamDialog(controller, this);

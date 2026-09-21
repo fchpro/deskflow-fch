@@ -87,7 +87,7 @@ MainWindow::MainWindow()
 {
   ui->setupUi(this);
   auto *sender = new SenderController(m_coreProcess.streamingSession(), this);
-  ui->topLevelWidget->layout()->addWidget(new StreamLauncher(sender, this));
+  ui->topLevelWidget->layout()->addWidget(new StreamLauncher(sender, this, true));
 
   setWindowIcon(QIcon::fromTheme(kRevFqdnName));
 

@@ -26,7 +26,7 @@ struct AudioSelection {
   quint32 processId = 0;
   quint64 processBirth = 0; // Windows process creation FILETIME; never trust PID alone
 };
-struct AudioEndpoint { QString id, name; };
+struct AudioEndpoint { QString id, name; bool isDefault = false; };
 QVector<AudioEndpoint> audioOutputEndpoints(QString &error);
 quint64 audioProcessBirth(quint32 pid);
 

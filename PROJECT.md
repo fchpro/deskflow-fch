@@ -61,6 +61,7 @@ Personal fork of [Deskflow](https://github.com/deskflow/deskflow), an open-sourc
 
 ## Unfinished Tasks and Worklists
 
+- `docs/tasks/stream-acceptance-and-mac-clipboard.md` — automatic stream acceptance and Mac-to-Windows screenshot clipboard diagnosis/verification.
 - `docs/tasks/left-modifier-swap-verification.md` — Mac-side visual verification after enabling the left Ctrl/Windows swap.
 - `docs/worklists/2026-09-13-1250/worklist-2026-09-13-1250.md` — complete screen/window/video streaming feature; phase 2 sequential execution authorized.
 
@@ -86,10 +87,11 @@ Full validation (minutes): `cmake --build build --target build-validation -j12` 
 
 ## Master Tests
 
-Unit tests (Qt Test): 56 C++ test binaries plus one Python package suite / 60 CTest registrations with `BUILD_STREAMING=ON` (25 upstream + 31 fork C++ binaries) under `src/unittests`; includes StreamingControlBoundaryTests, StreamingControlTests, StreamingControlLifecycleTests, StreamingControlHookTests and the extended StreamingControlTransportTests. Run via `ctest` from `build\src\unittests` (see Quick Check for the required PATH). No external master-test project. Previously completed streaming tests remain protected master tests.
+Unit tests (Qt Test): 58 C++ test binaries plus one Python package suite / 62 CTest registrations with `BUILD_STREAMING=ON` (25 upstream + 33 fork C++ binaries) under `src/unittests`; includes StreamingControlBoundaryTests, StreamingControlTests, StreamingControlLifecycleTests, StreamingControlHookTests and the extended StreamingControlTransportTests. Run via `ctest` from `build\src\unittests` (see Quick Check for the required PATH). No external master-test project. Previously completed streaming tests remain protected master tests.
 
 ## Architecture and Workflow Notes
 
+- Streaming acceptance (2026-09-21 product decision): MainWindow enables automatic acceptance of new authenticated offers after opening the viewer. Windows/macOS use their enumerated native default audio output; missing defaults require output selection. Stop and separate desktop-control grants remain. Embedded launchers/viewers default to manual acceptance. Windows update installed at the existing dist/2026-09-16 path; prior package is dist/2026-09-16-before-auto-accept. User-relayed Mac report: signed build installed and TLS reconnected; acceptance7/7, quick39/47, lock-state streaming blocker, cross-device clipboard unverified. Detailed Mac diagnostics/patch pending. See `docs/tasks/stream-acceptance-and-mac-clipboard.md`.
 - Client/server architecture: one machine runs the server (keyboard/mouse owner), others run clients; `src/lib/net` handles transport, `src/lib/platform` handles per-OS input injection/capture.
 - Version is derived from git describe; fallback version is hardcoded in root `CMakeLists.txt`.
 - Fork policy: never commit personal customizations to `master`; that branch must stay clean for upstream syncs.
@@ -97,7 +99,7 @@ Unit tests (Qt Test): 56 C++ test binaries plus one Python package suite / 60 CT
 - Clipboard image sharing: default `server/clipboardSize` raised 3 -> 128 MiB (bitmaps are uncompressed DIBs; screenshots exceeded 3 MiB). Clients enforce receive limit from their own local setting; see `docs/project/customizations.md` section 4.
 - Game/app exclusion feature (Windows server only): see `docs/project/customizations.md` — settings key `server/excludedApps`, watcher `MSWindowsForegroundWatcher` (events + 100 ms poll + pid snapshot + 300 ms resume debounce), hook-level pid guard, motion drop in `MSWindowsScreen`, 1 s watchdog. GUI: foreground label + `Excluded Apps` dialog (process picker with search) in the main window.
 - Left Ctrl/Windows swap (Windows server): `server/leftCtrlSuperSwapScreen` selects one canonical client name; local/right-side keys remain unchanged. Per-event physical modifier snapshots preserve shortcuts without changing the protocol. See `docs/project/customizations.md` section 5.
-- All git mutations (branching, merging, pulling upstream) are performed by the user, not the LLM.
+- Git mutations are normally user-run. For this streaming/clipboard conversation the user explicitly authorized the agent to manage Git syncing and builds on Windows and Mac; Windows acts locally and Mac executes coordinated prompts. Preserve local work; no force-push or destructive reset is authorized.
 
 - Streaming ownership: core worker owns the input-exporter-bound TLS 1.3 broker/private IPC and one source-bound desktop-control lease. GUI cannot inject OS input. Grants require explicit interactive offer permission, source-local grant, valid matching presented-frame geometry and idle ordinary input ownership. Native/ordinary input gates suppress echo and release held state on revoke; failed native releases retain arbitration and retry. Input protocol 1.8 remains unchanged. File playback permission is separate. macOS/X11 backends are source implementations awaiting their builds/native acceptance; standard Wayland physical-observer limitations require the documented product decision. Windows active-session service-core delegation is implemented with exact-logon native pipes but privileged runtime remains unaccepted; session zero remains rejected. Streaming-only login/power monitoring covers file/receiver/capture paths. macOS lock-state admission is unresolved and may refuse streaming; see the documented product decision.
 
@@ -136,4 +138,8 @@ Unit tests (Qt Test): 56 C++ test binaries plus one Python package suite / 60 CT
 
 - FileSource timestamps are media stream time derived from each GStreamer sample segment; raw decoder PTS can contain MP4 reorder/edit-list offsets. `StreamingFileTimelineTests` checks both decoded tracks at startup and seek in quick/exhaustive CTest.
 
-- Post-first-frame recovery: authenticated newer video identities without decoded progress for3s terminate both peers with an actionable restart message. Static/paused identities remain valid; initial timeout and total-video-blackhole liveness are separate. `StreamingDecodeProgressPolicyTests` joins quick; `StreamingDecodeProgressTests` joins exhaustive with real selective encrypted-video loss, bilateral Stop/cleanup and same-instance reuse. Current quick/exhaustive selections contain53/60 registrations.
+- Post-first-frame recovery: authenticated newer video identities without decoded progress for3s terminate both peers with an actionable restart message. Static/paused identities remain valid; initial timeout and total-video-blackhole liveness are separate. `StreamingDecodeProgressPolicyTests` joins quick; `StreamingDecodeProgressTests` joins exhaustive with real selective encrypted-video loss, bilateral Stop/cleanup and same-instance reuse. Current quick/exhaustive selections contain55/62 registrations.
+
+- Automatic receiver acceptance checks: build `StreamingAutoAcceptTests`; `ctest --test-dir build/src/unittests -R StreamingAutoAcceptTests --output-on-failure`. Included in quick/exhaustive checks. Covers private IPC/broker automatic Accept and Stop, visible viewer policy and default/missing audio output. Use Qt offscreen/font paths for hidden rendering.
+
+- Capture destruction: SenderWorker disconnects its capture observer before member teardown because native capture destructors can emit statusChanged. `StreamingCaptureLifetimeTests` joins quick/exhaustive; checks no callback during destruction and normal live-source Stop propagation. Native Mac sender regression must also run on Mac.
