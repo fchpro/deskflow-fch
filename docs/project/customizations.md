@@ -106,7 +106,7 @@ clipboardSize=128
 ### Windows native V5 clipboard publication
 
 - Complete Mac V5 bitmaps are explicitly published as CF_DIBV5 as well as CF_DIB. Windows advertises synthesized V5 for a CF_DIB-only Mac BITFIELDS image but native retrieval can fail; WPF reports CLIPBRD_E_BAD_DATA.
-- Duplicate the converted handle before transferring ownership. Preserve V5 pixels, alpha, masks and colour data; repaired legacy40-byte DIBs remain unchanged. No Mac update/protocol change.
+- Duplicate the converted handle before transferring ownership. Preserve the complete original in CF_DIBV5. Standard sRGB BGRA V5 screenshots also get a40-byte BI_RGB CF_DIB with unchanged pixel rows for legacy readers (Chromium counts V5 masks twice). Other masks/profiles and repaired legacy DIBs retain their existing representation. No Mac update/protocol change.
 - MSWindowsClipboardNativeBitmapTests covers real native format retrieval and decoded RGB pixels for Mac V5, ordinary Windows and legacy repaired DIBs. ChatGPT paste acceptance remains pending; Paint/Claude transfer was user-confirmed.
 
 ## 5. Left Ctrl / Windows swap for one client (Windows server only)

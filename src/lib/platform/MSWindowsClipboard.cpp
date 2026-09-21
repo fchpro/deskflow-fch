@@ -14,7 +14,52 @@
 #include "platform/MSWindowsClipboardHTMLConverter.h"
 #include "platform/MSWindowsClipboardUTF16Converter.h"
 
+#include <QScopeGuard>
+
 namespace {
+HANDLE legacyV5Bitmap(HANDLE bitmap)
+{
+  const auto size = GlobalSize(bitmap);
+  if (size < sizeof(BITMAPV5HEADER))
+    return nullptr;
+  const auto *source = static_cast<const char *>(GlobalLock(bitmap));
+  if (!source)
+    return nullptr;
+  const auto unlock = qScopeGuard([&] { GlobalUnlock(bitmap); });
+  BITMAPV5HEADER header{};
+  memcpy(&header, source, sizeof(header));
+  // This is a lossless re-layout of the standard sRGB BGRA screenshot case.
+  // Other masks, palettes and colour profiles require their original V5 data.
+  if (header.bV5Size != sizeof(header) || header.bV5Width <= 0 || header.bV5Height == 0 ||
+      header.bV5Planes != 1 || header.bV5BitCount != 32 || header.bV5Compression != BI_BITFIELDS ||
+      header.bV5RedMask != 0x00ff0000 || header.bV5GreenMask != 0x0000ff00 ||
+      header.bV5BlueMask != 0x000000ff || header.bV5AlphaMask != 0xff000000 ||
+      header.bV5CSType != LCS_sRGB || header.bV5ClrUsed != 0 || header.bV5ProfileData != 0 ||
+      header.bV5ProfileSize != 0)
+    return nullptr;
+  const auto height = header.bV5Height < 0 ? -int64_t(header.bV5Height) : int64_t(header.bV5Height);
+  const auto pixelsSize = uint64_t(header.bV5Width) * uint64_t(height) * 4;
+  if (pixelsSize + sizeof(header) != size)
+    return nullptr;
+
+  const auto result = GlobalAlloc(GMEM_MOVEABLE, sizeof(BITMAPINFOHEADER) + pixelsSize);
+  auto *target = result ? static_cast<char *>(GlobalLock(result)) : nullptr;
+  if (!target) {
+    if (result)
+      GlobalFree(result);
+    LOG_WARN("failed to allocate standard clipboard bitmap");
+    return nullptr;
+  }
+  BITMAPINFOHEADER legacy{};
+  memcpy(&legacy, &header, sizeof(legacy));
+  legacy.biSize = sizeof(legacy);
+  legacy.biCompression = BI_RGB;
+  memcpy(target, &legacy, sizeof(legacy));
+  memcpy(target + sizeof(legacy), source + sizeof(header), pixelsSize);
+  GlobalUnlock(result);
+  return result;
+}
+
 HANDLE duplicateV5Bitmap(HANDLE bitmap)
 {
   const auto size = GlobalSize(bitmap);
@@ -136,6 +181,15 @@ void MSWindowsClipboard::add(Format format, const std::string &data)
         // retaining CF_DIB for existing consumers and all V5 pixels/colour data.
         // Inspect the converted handle so repaired legacy DIBs stay CF_DIB only.
         HANDLE v5Data = format == Format::Bitmap ? duplicateV5Bitmap(win32Data) : nullptr;
+        if (v5Data) {
+          // CF_DIB readers can assume BITFIELDS masks follow the header;
+          // V5 embeds them instead. Provide a standard INFOHEADER layout while
+          // keeping the full original colour/alpha representation in CF_DIBV5.
+          if (HANDLE legacyData = legacyV5Bitmap(win32Data)) {
+            GlobalFree(win32Data);
+            win32Data = legacyData;
+          }
+        }
         m_facade->write(win32Data, converter->getWin32Format());
         if (v5Data)
           m_facade->write(v5Data, CF_DIBV5);

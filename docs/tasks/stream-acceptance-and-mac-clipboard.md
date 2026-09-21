@@ -63,3 +63,12 @@
 - build-validation passed; quick55/57 in28.36s. Only documented foreground-window and raw-audio-message expectation failures remain. Full suite unrun. Local diagnostic/build/check/package output: .ltemp/proof-of-work/clipboard-v5/.
 - Installed Windows update at dist/2026-09-16; prior package retained at .ltemp/package-before-clipboard-v5. Settings unchanged; input24800 and signaling24801 reconnected to the Mac. Pre-check screenshot restored after clipboard tests. Package audit29 plugins/502 edges/102 PE files passed.
 - Next: verify a newly transferred Mac screenshot in ChatGPT. Do not mark ChatGPT compatibility fixed from native-decoder results alone. No Mac rebuild is needed for this Windows-only change.
+
+## Standard CF_DIB representation follow-up
+
+- User reports ChatGPT still rejects the installed V5-only correction. Windows clipboard inspection confirms the new core publishes readable CF_DIBV5 and both WPF/WinForms decode it, so native V5 retrieval alone does not establish ChatGPT compatibility.
+- Installed app package declares Electron42.3.0. Its Chromium148.0.7778.180 bitmap reader uses CF_DIB and adds12 mask bytes after biSize for BI_BITFIELDS; V5 already embeds those masks. This is a concrete layout incompatibility, not yet proof of the entire app failure path. Sources: https://raw.githubusercontent.com/electron/electron/v42.3.0/DEPS and https://raw.githubusercontent.com/chromium/chromium/148.0.7778.180/ui/base/clipboard/clipboard_win.cc .
+- Temporary standard-DIB test was replaced during the test (sequence1584 ->1597; original124-byte header restored). A new capture or peer clipboard republication can replace diagnostics; do not interpret that test as verification of the corrected format.
+- Permanent Windows publication now gives standard sRGB BGRA V5 screenshots a40-byte BI_RGB CF_DIB with byte-identical pixel rows. CF_DIBV5 retains the complete original header, masks, alpha and colour data. Other profiles/masks retain their existing representation. No protocol or Mac changes.
+- Native regression now also checks exact standard CF_DIB header/pixels, top-down/bottom-up rows, preserved partial alpha in V5 and decoded RGB pixels.
+- Build passed; final quick/package/install and ChatGPT acceptance pending.

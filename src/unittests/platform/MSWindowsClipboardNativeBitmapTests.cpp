@@ -30,21 +30,24 @@ private Q_SLOTS:
   {
     QTest::addColumn<bool>("v5");
     QTest::addColumn<bool>("malformed");
-    QTest::newRow("mac-v5-bgra") << true << false;
-    QTest::newRow("windows-infoheader") << false << false;
-    QTest::newRow("legacy-mac-truncated-header") << false << true;
+    QTest::addColumn<bool>("topDown");
+    QTest::newRow("mac-v5-bgra") << true << false << true;
+    QTest::newRow("mac-v5-bottom-up") << true << false << false;
+    QTest::newRow("windows-infoheader") << false << false << true;
+    QTest::newRow("legacy-mac-truncated-header") << false << true << true;
   }
 
   void nativeReaders()
   {
     QFETCH(bool, v5);
     QFETCH(bool, malformed);
+    QFETCH(bool, topDown);
     const size_t headerSize = v5 ? sizeof(BITMAPV5HEADER) : sizeof(BITMAPINFOHEADER);
     std::string dib(headerSize + 16, '\0');
     auto *raw = reinterpret_cast<quint8 *>(dib.data());
     qToLittleEndian<quint32>(v5 || malformed ? sizeof(BITMAPV5HEADER) : headerSize, raw);
     qToLittleEndian<qint32>(2, raw + 4);
-    qToLittleEndian<qint32>(-2, raw + 8);
+    qToLittleEndian<qint32>(topDown ? -2 : 2, raw + 8);
     qToLittleEndian<quint16>(1, raw + 12);
     qToLittleEndian<quint16>(32, raw + 14);
     qToLittleEndian<quint32>(v5 || malformed ? BI_BITFIELDS : BI_RGB, raw + 16);
@@ -56,9 +59,10 @@ private Q_SLOTS:
       qToLittleEndian<quint32>(0xff000000, raw + 52);
       qToLittleEndian<quint32>(LCS_sRGB, raw + 56);
     }
-    const unsigned char pixels[] = {0x11, 0x22, 0x33, 0xff, 0x44, 0x55, 0x66, 0xff,
+    const unsigned char pixels[] = {0x11, 0x22, 0x33, 0x80, 0x44, 0x55, 0x66, 0xff,
                                     0x77, 0x88, 0x99, 0xff, 0xaa, 0xbb, 0xcc, 0xff};
-    memcpy(raw + headerSize, pixels, sizeof(pixels));
+    memcpy(raw + headerSize, pixels + (topDown ? 0 : 8), 8);
+    memcpy(raw + headerSize + 8, pixels + (topDown ? 8 : 0), 8);
 
     MSWindowsClipboard clipboard(m_window);
     QVERIFY(clipboard.open(0));
@@ -77,7 +81,17 @@ private Q_SLOTS:
       GlobalUnlock(v5Handle);
       QCOMPARE(copy, dib); // Preserve header, masks, alpha and exact pixel bytes.
     }
-    QVERIFY(GetClipboardData(CF_DIB) != nullptr);
+    const auto dibHandle = GetClipboardData(CF_DIB);
+    QVERIFY(dibHandle != nullptr);
+    const auto *legacy = static_cast<const char *>(GlobalLock(dibHandle));
+    QVERIFY(legacy != nullptr);
+    const std::string legacyCopy(legacy, GlobalSize(dibHandle));
+    GlobalUnlock(dibHandle);
+    QCOMPARE(legacyCopy.size(), sizeof(BITMAPINFOHEADER) + sizeof(pixels));
+    const auto *legacyBytes = reinterpret_cast<const quint8 *>(legacyCopy.data());
+    QCOMPARE(qFromLittleEndian<quint32>(legacyBytes), quint32(sizeof(BITMAPINFOHEADER)));
+    QCOMPARE(qFromLittleEndian<quint32>(legacyBytes + 16), quint32(BI_RGB));
+    QCOMPARE(legacyCopy.substr(sizeof(BITMAPINFOHEADER)), dib.substr(headerSize));
     const auto bitmap = static_cast<HBITMAP>(GetClipboardData(CF_BITMAP));
     QVERIFY2(bitmap != nullptr, "Native bitmap consumers such as OLE must receive an image");
     BITMAP object{};
