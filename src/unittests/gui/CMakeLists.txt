@@ -4,6 +4,9 @@
 add_subdirectory(config)
 add_subdirectory(core)
 
+create_test(NAME InstanceActivationTests DEPENDS gui SOURCE InstanceActivationTests.cpp
+  WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+
 create_test(
   NAME LoggerTests
   DEPENDS gui

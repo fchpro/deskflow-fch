@@ -143,6 +143,14 @@ Legacy values migrate from sibling `Deskflow.conf`. The fork file survives stock
 - Run `ctest --test-dir build/src/unittests -R "LeftModifierSwap|ExcludedAppsPersistence|^SettingsTests$" --output-on-failure` with the documented DLL PATH. New suite joins quick/exhaustive checks.
 
 **Manual verification**: on the Mac, left Ctrl+C/V should act as Command+C/V and left Windows should act as Control. Confirm right Ctrl remains Control and local Windows shortcuts remain unchanged.
+## 6. Repeated taskbar reopening (2026-09-22)
+
+- Duplicate launches connect to the running GUI's local socket. Previously MainWindow restored the window without consuming pending connections; the bounded queue eventually prevented further reopen requests.
+- `gui/InstanceActivation.h` drains, closes and deletes each accepted socket before invoking the existing window restore action. MainWindow uses this handler; single-instance locking remains unchanged.
+- `InstanceActivationTests` exercises three times the default queue capacity for connected and immediately disconnected launchers, checking activation delivery, empty pending queues and socket cleanup. Included in quick/exhaustive checks.
+- Build-validation and the new suite passed. Hidden quick58/60 in38.09s retains the known foreground-watcher/audio failures and exceeded the30s target. Full suite not run for this scoped fix.
+- Installed at the existing `dist/2026-09-16` shortcut target; backup `.ltemp/package-before-taskbar-activation`. Packaged and installed GUI hashes match.100 duplicate launches exited correctly while retaining one original GUI process; shortcut reopening was visually inspected and the user reported it working. Mac reconnected after restart. Logs: `.ltemp/proof-of-work/taskbar-activation/`.
+
 # Streaming session foundations
 
 - `src/lib/streaming/`: bounded session broker, input-exporter-bound TLS 1.3 signaling and credential-checked private GUI IPC. `CoreProcess::streamingSession()` is the GUI integration API.

@@ -11,6 +11,7 @@
 #include "ui_MainWindow.h"
 
 #include "Diagnostic.h"
+#include "InstanceActivation.h"
 #include "StyleUtils.h"
 #include "streaming/StreamDialog.h"
 
@@ -317,7 +318,7 @@ void MainWindow::connectSlots()
   connect(m_statusBar, &StatusBar::requestUpdateVersion, this, &MainWindow::openGetNewVersionUrl);
   connect(&m_versionChecker, &VersionChecker::updateFound, m_statusBar, &StatusBar::updateFound);
 
-  connect(m_guiDupeChecker, &QLocalServer::newConnection, this, &MainWindow::showAndActivate);
+  connectInstanceActivation(m_guiDupeChecker, this, [this] { showAndActivate(); });
 
   connect(ui->btnEditName, &QPushButton::clicked, this, &MainWindow::showHostNameEditor);
 
