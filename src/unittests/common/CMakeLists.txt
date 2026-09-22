@@ -1,6 +1,13 @@
 # SPDX-FileCopyrightText: (C) 2025 Deskflow Developers
 # SPDX-License-Identifier: MIT
 
+if(WIN32)
+  create_test(NAME LeftModifierSwapPersistenceTests DEPENDS common
+    SOURCE LeftModifierSwapPersistenceTests.cpp WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+  create_test(NAME ExcludedAppsPersistenceTests DEPENDS common
+    SOURCE ExcludedAppsPersistenceTests.cpp WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+endif()
+
 create_test(
   NAME SettingsTests
   DEPENDS common

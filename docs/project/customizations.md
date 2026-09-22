@@ -34,12 +34,12 @@ Personal customizations on top of upstream Deskflow. Keep this list current; rea
 - Tests: `src/unittests/gui/core/ProcessListTests`, `src/unittests/gui/ExcludedAppsDialogTests` (structure, search, add/remove, monitor matching).
 
 **Configuration** (edit as the app list grows):
-`%APPDATA%\Deskflow\Deskflow.conf`:
+`%APPDATA%\Deskflow\Deskflow-fch.conf` (or beside the selected portable/custom settings file):
 ```ini
 [server]
 excludedApps=bf6.exe
 ```
-List is read once at core start (restart core after editing). Caveat: the stock upstream build may strip this unknown key from the conf when it saves settings; re-add after switching to the custom build.
+List is read once at core start (restart core after editing). The fork stores exclusions separately from stock settings. A legacy `server/excludedApps` entry in `Deskflow.conf` migrates on load; the legacy entry is removed only after a successful save. An existing fork policy, including an explicitly empty list, wins over stale legacy settings.
 
 **Known process names**: Battlefield 6 = `bf6.exe` (verified live). Valorant deferred — verify its process name before adding.
 
@@ -47,7 +47,14 @@ List is read once at core start (restart core after editing). Caveat: the stock 
 - Only the jump-zone watching is disabled; the low-level hooks stay installed but pass everything through (`kHOOK_DISABLE`), cost is negligible.
 - Pause only applies while the cursor is on the primary (Windows) screen.
 - macOS client is untouched; protocol unchanged.
-- **Stock GUI strips the key**: the upstream/stock Deskflow GUI removes `excludedApps` from the conf (unknown key cleanup). Never run the stock GUI while using this feature. The stock service is stopped and disabled; run the custom build (desktop shortcut "Deskflow FCH" -> `dist/<date>/deskflow.exe`, see PROJECT.md) in Desktop process mode (`processMode=1`).
+- **Stock GUI strips legacy keys**: stock Deskflow removes fork-only keys from its own configuration. The separate exclusion file survives that cleanup, but stock binaries do not implement game exclusion. The stock service stays stopped and disabled; run the custom build (desktop shortcut "Deskflow FCH" -> `dist/<date>/deskflow.exe`, see PROJECT.md) in Desktop process mode (`processMode=1`).
+
+### Lost BF6 exclusion policy (2026-09-22)
+
+- Active `Deskflow.conf` lacked `server/excludedApps`; prior backups contained `bf6.exe`. Logs showed watcher startup through September21 11:55 but no watcher on later core starts. The deleting process was not identified.
+- `Settings` now reads/writes exclusions in sibling `Deskflow-fch.conf`; GUI and core share this policy. Migration preserves explicit empty selections and avoids reimporting stale legacy values. Other settings retain their existing storage.
+- New `ExcludedAppsPersistenceTests` uses isolated portable child processes to verify legacy migration, survival after main-config cleanup, GUI-save/core-restart persistence, explicit empty lists and switching config directories. Included in quick/exhaustive CTest; no existing protected tests changed.
+- Built all validation targets; persistence/watcher/hook suites passed. Hidden quick56/58 in27.76s retained the known foreground-desktop and audio failures. Installed at `dist/2026-09-16`; backup `.ltemp/package-before-bf6-exclusion`. Restored BF6 policy; actual BF6 gameplay was not exercised.
 
 ## 2. Pause/resume toast (Windows server only)
 
@@ -113,12 +120,12 @@ clipboardSize=128
 
 **Behavior**: left Ctrl sends Mac Command; left Windows sends Mac Control. Right Ctrl/Windows, local Windows input, and other clients retain their original mappings.
 
-**Configuration** (`%APPDATA%\Deskflow\Deskflow.conf`, restart GUI/core after editing):
+**Configuration** (`%APPDATA%\Deskflow\Deskflow-fch.conf`, restart GUI/core after editing):
 ```ini
 [server]
 leftCtrlSuperSwapScreen=Fakhreddines-MacBook-Pro.local
 ```
-Empty/unset disables the swap. Use the client's canonical screen name. Keep the client's existing Ctrl/Super modifier mapping at its default; an additional client-side swap would remap the output again. Renaming the Mac requires updating this setting. No Mac build or protocol change is needed.
+Legacy values migrate from sibling `Deskflow.conf`. The fork file survives stock-config cleanup; an existing value (including an explicit empty target) wins over stale legacy settings. Empty/unset disables the swap. Use the client's canonical screen name. Keep the client's existing Ctrl/Super modifier mapping at its default; an additional client-side swap would remap the output again. Renaming the Mac requires updating this setting. No Mac build or protocol change is needed.
 
 **Implementation**:
 - `server/LeftModifierSwap.h` maps key IDs and shortcut masks per recipient, including broadcast recipients and the modifier mask sent on screen entry. The primary is always excluded.
@@ -126,6 +133,14 @@ Empty/unset disables the swap. Use the client's canonical screen name. Keep the 
 - `KeyState::sendKeyEvent` captures Ctrl/Super sides into `IKeyState::KeyInfo`; copies retain the snapshot. The server uses the event's snapshot rather than later keyboard state. Mixed left/right modifiers and AltGr-suppressed masks are preserved.
 - `PlatformScreen` forwards the side query for screen entry. The setting is enabled only by Windows servers; other platforms retain existing behavior.
 - New tests: `LeftModifierSwapTests` covers mapping/scope, all 16 left/right modifier combinations, event copies, and Windows down/up/repeat capture after physical state changes. Run from the documented test environment: `ctest --test-dir build/src/unittests -R LeftModifierSwapTests --output-on-failure`.
+
+### Lost swap setting (2026-09-22)
+
+- Mapping code was intact; the active configuration lacked its target. The deleting process was not identified.
+- `Settings` now persists the target beside exclusions in `Deskflow-fch.conf`. Restored `Fakhreddines-MacBook-Pro.local`; installed at `dist/2026-09-16`, backup `.ltemp/package-before-modifier-restore`. Core logs confirm enabled mapping and a reconnected secure client.
+- `LeftModifierSwapPersistenceTests` adds six isolated process scenarios: legacy migration plus main-config cleanup, absent/default target, stale legacy precedence, save/restart, explicit disable/restart and config-directory isolation. Loaded settings feed the real key mapper to check swap and scope. Existing mapping/event-side coverage remains unchanged.
+- Build-validation and four targeted suites passed. Hidden quick57/59 in27.80s retains the known foreground-watcher/audio failures. Physical Mac shortcuts remain unverified. Logs: `.ltemp/proof-of-work/left-modifier-restore/`.
+- Run `ctest --test-dir build/src/unittests -R "LeftModifierSwap|ExcludedAppsPersistence|^SettingsTests$" --output-on-failure` with the documented DLL PATH. New suite joins quick/exhaustive checks.
 
 **Manual verification**: on the Mac, left Ctrl+C/V should act as Command+C/V and left Windows should act as Control. Confirm right Ctrl remains Control and local Windows shortcuts remain unchanged.
 # Streaming session foundations

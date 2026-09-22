@@ -239,6 +239,8 @@ private:
   void checkIfSettingsWritableChange();
 
   QSettings *m_settings = nullptr;
+  QSettings *m_forkSettings = nullptr;
+  void loadForkSettings();
   QSettings *m_stateSettings = nullptr;
   bool m_settingsWritable;
   QFileSystemWatcher *m_settingsWatcher = nullptr;

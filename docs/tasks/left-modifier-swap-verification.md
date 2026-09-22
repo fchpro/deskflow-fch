@@ -11,3 +11,10 @@ Status: blocked-manual
 MANUAL STEP: On the Mac, capture Keyboard Viewer showing Command highlighted while the PC's left Ctrl is held, then Control highlighted while the PC's left Windows key is held. Save the screenshots under `temp/proof-of-work/left-modifier-swap/` and blind-check them before marking this task done.
 
 Also verify Ctrl+C/V on the PC keyboard invokes Command+C/V on the Mac, right Ctrl stays Control, and local Windows shortcuts remain unchanged. Close this task and remove its PROJECT.md index entry after verification.
+
+## Restoration — 2026-09-22 (Blitz)
+
+- Target disappeared from active settings; remapping code remained intact. Persisted target now lives in sibling `Deskflow-fch.conf` and migrates from the main config.
+- Restored Mac target and installed/restarted Windows package. Core startup confirms the swap enabled and secure client reconnected. Backup: `.ltemp/package-before-modifier-restore`.
+- Six new isolated persistence scenarios plus existing mapping/settings/exclusion suites pass (four targeted suites). Build-validation passed. Hidden quick57/59 in27.80s retains pre-existing foreground/audio failures. Exhaustive/fault injection/blind proof checks omitted under Blitz.
+- Current evidence: `.ltemp/proof-of-work/left-modifier-restore/`. No new Mac physical shortcut or visual verification; earlier manual acceptance remains pending.

@@ -37,6 +37,7 @@ void Settings::setSettingsFile(const QString &settingsFile)
   instance()->m_settings = new QSettings(settingsFile, QSettings::IniFormat, instance());
   instance()->m_settingsWatcher->addPath(settingsFile);
   instance()->m_settingsProxy->load(settingsFile);
+  instance()->loadForkSettings();
   qInfo().noquote() << "settings file changed:" << instance()->m_settings->fileName();
 
   instance()->upgradeSettings();
@@ -85,6 +86,7 @@ Settings::Settings(QObject *parent) : QObject(parent), m_settingsWatcher{new QFi
   connect(m_settingsWatcher, &QFileSystemWatcher::fileChanged, this, &Settings::checkIfSettingsWritableChange);
   m_settingsProxy = std::make_shared<QSettingsProxy>();
   m_settingsProxy->load(fileToLoad);
+  loadForkSettings();
   qInfo().noquote() << "initial settings file:" << m_settings->fileName();
 
   const auto xdgStateHome = qEnvironmentVariable("XDG_STATE_HOME");
@@ -99,6 +101,28 @@ Settings::Settings(QObject *parent) : QObject(parent), m_settingsWatcher{new QFi
   cleanSettings();
   cleanStateSettings();
   setupComputerName();
+}
+
+void Settings::loadForkSettings()
+{
+  delete m_forkSettings;
+  const auto path = QFileInfo(m_settings->fileName()).dir().filePath(QStringLiteral("Deskflow-fch.conf"));
+  m_forkSettings = new QSettings(path, QSettings::IniFormat, this);
+  // Stock Deskflow removes fork-only keys from its own settings. Keep the
+  // fork policies in a separate file shared by this fork's GUI and core.
+  for (const auto &key : {Server::ExcludedApps, Server::LeftCtrlSuperSwapScreen}) {
+    if (!m_settings->contains(key))
+      continue;
+    if (!m_forkSettings->contains(key))
+      m_forkSettings->setValue(key, m_settings->value(key));
+    m_forkSettings->sync();
+    if (m_forkSettings->status() == QSettings::NoError) {
+      m_settings->remove(key);
+      m_settings->sync();
+    } else {
+      qWarning().noquote() << "could not migrate fork setting" << key << "to:" << path;
+    }
+  }
 }
 
 void Settings::upgradeSettings()
@@ -274,6 +298,7 @@ void Settings::save(bool emitSaving)
   if (emitSaving)
     Q_EMIT instance()->serverSettingsChanged();
   instance()->m_settings->sync();
+  instance()->m_forkSettings->sync();
   instance()->m_stateSettings->sync();
 }
 
@@ -344,6 +369,8 @@ void Settings::setValue(const QString &key, const QVariant &value)
 {
   const bool useState = Settings::m_stateKeys.contains(key) && !instance()->isPortableMode();
   auto settings = useState ? instance()->m_stateSettings : instance()->m_settings;
+  if (key == Server::ExcludedApps || key == Server::LeftCtrlSuperSwapScreen)
+    settings = instance()->m_forkSettings;
 
   if (settings->value(key) == value)
     return;
@@ -365,6 +392,8 @@ QVariant Settings::value(const QString &key)
 {
   const bool useState = Settings::m_stateKeys.contains(key) && !instance()->isPortableMode();
   auto settings = useState ? instance()->m_stateSettings : instance()->m_settings;
+  if (key == Server::ExcludedApps || key == Server::LeftCtrlSuperSwapScreen)
+    settings = instance()->m_forkSettings;
   return settings->value(key, defaultValue(key));
 }
 
