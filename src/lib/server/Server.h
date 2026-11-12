@@ -17,6 +17,7 @@
 #include "deskflow/MouseTypes.h"
 #include "server/Config.h"
 #include "server/MouseMoveCoalescer.h"
+#include "server/ScreenEntryGuard.h"
 #include "server/LeftModifierSwap.h"
 
 #include <climits>
@@ -225,6 +226,10 @@ private:
 
   // change the active screen
   void switchScreen(BaseClientProxy *, int32_t x, int32_t y, bool forScreenSaver);
+
+  // arm the client entry guard after a motion-driven switch that left the
+  // previous screen in direction leftDir (no-op for the primary screen)
+  void armEntryGuard(const BaseClientProxy *dst, Direction leftDir);
 
   // jump to screen
   void jumpToScreen(BaseClientProxy *);
@@ -469,6 +474,10 @@ private:
 
   // rate limiter for mouse moves sent to clients (fork customization)
   MouseMoveCoalescer m_mouseCoalescer{0};
+
+  // hysteresis on the edge a client screen was entered from (fork customization)
+  ScreenEntryGuard m_entryGuard;
+  int32_t m_entryGuardPixels = 0;
   LeftModifierSwap m_leftModifierSwap;
   EventQueueTimer *m_mouseFlushTimer = nullptr;
 

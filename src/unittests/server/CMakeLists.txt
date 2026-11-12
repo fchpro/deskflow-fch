@@ -31,6 +31,14 @@ create_test(
 )
 
 create_test(
+  NAME ScreenEntryGuardTests
+  DEPENDS server
+  LIBS base arch ${extra_libs}
+  SOURCE ScreenEntryGuardTests.cpp
+  WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/server"
+)
+
+create_test(
   NAME LeftModifierSwapTests
   DEPENDS server
   LIBS base arch ${extra_libs}

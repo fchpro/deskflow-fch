@@ -36,6 +36,7 @@ add_library(server STATIC
   InputFilter.h
   LeftModifierSwap.h
   MouseMoveCoalescer.h
+  ScreenEntryGuard.h
   PrimaryClient.cpp
   PrimaryClient.h
   Server.cpp

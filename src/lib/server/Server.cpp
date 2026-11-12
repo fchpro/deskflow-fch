@@ -76,6 +76,12 @@ Server::Server(ServerConfig &config, PrimaryClient *primaryClient, deskflow::Scr
     LOG_INFO("mouse send rate limited to %d Hz", hz);
   }
 
+  // hold the client entry edge against small reversals (fork customization). 0 = off.
+  m_entryGuardPixels = std::max(0, Settings::value(Settings::Server::EntryGuardPixels).toInt());
+  if (m_entryGuardPixels > 0) {
+    LOG_INFO("client entry guard: %d px", m_entryGuardPixels);
+  }
+
 #ifdef _WIN32
   const auto swapScreen = Settings::value(Settings::Server::LeftCtrlSuperSwapScreen).toString().toStdString();
   m_leftModifierSwap = LeftModifierSwap(swapScreen);
@@ -415,6 +421,9 @@ void Server::switchScreen(BaseClientProxy *dst, int32_t x, int32_t y, bool forSc
   m_mouseCoalescer.reset();
   stopMouseFlushTimer();
 
+  // motion-driven callers re-arm the entry guard after a successful switch
+  m_entryGuard.reset();
+
   int32_t dx;
   int32_t dy;
   int32_t dw;
@@ -529,6 +538,16 @@ void Server::switchScreen(BaseClientProxy *dst, int32_t x, int32_t y, bool forSc
   } else {
     m_active->mouseMove(x, y);
   }
+}
+
+void Server::armEntryGuard(const BaseClientProxy *dst, Direction leftDir)
+{
+  // the switch may have been refused (e.g. streaming owns input) and the
+  // primary screen already moves entries inward via avoidJumpZone
+  if (dst != m_active || dst == m_primaryClient) {
+    return;
+  }
+  m_entryGuard.arm(ScreenEntryGuard::opposite(leftDir), m_entryGuardPixels);
 }
 
 void Server::jumpToScreen(BaseClientProxy *newScreen)
@@ -1303,8 +1322,11 @@ void Server::handleSwitchWaitTimeout()
     return;
   }
 
-  // switch screen
-  switchScreen(m_switchScreen, m_switchWaitX, m_switchWaitY, false);
+  // switch screen (delayed motion-driven switch; switchScreen clears m_switchDir)
+  BaseClientProxy *const dst = m_switchScreen;
+  const Direction dir = m_switchDir;
+  switchScreen(dst, m_switchWaitX, m_switchWaitY, false);
+  armEntryGuard(dst, dir);
 }
 
 void Server::handleClientDisconnected(BaseClientProxy *client)
@@ -1745,6 +1767,7 @@ bool Server::onMouseMovePrimary(int32_t x, int32_t y)
     if (isSwitchOkay(newScreen, dir, x, y, xc, yc)) {
       // switch screen
       switchScreen(newScreen, x, y, false);
+      armEntryGuard(newScreen, dir);
       return true;
     }
   }
@@ -1838,6 +1861,7 @@ void Server::applyMouseMoveSecondary(int32_t dx, int32_t dy)
   // find direction of neighbor and get the neighbor
   bool jump = true;
   BaseClientProxy *newScreen;
+  Direction leaveDir = Direction::NoDirection;
   do {
     // clamp position to screen
     int32_t xc = m_x;
@@ -1867,6 +1891,14 @@ void Server::applyMouseMoveSecondary(int32_t dx, int32_t dy)
       // we haven't left the screen
       newScreen = m_active;
       jump = false;
+
+      // moving off the entry edge resets the held push; moving far enough
+      // inward disarms the entry guard
+      if (m_entryGuard.armed()) {
+        m_entryGuard.observeInside(
+            ScreenEntryGuard::distanceInsideEdge(m_entryGuard.backDirection(), m_x, m_y, ax, ay, aw, ah)
+        );
+      }
 
       // if waiting and mouse is not on the border we're waiting
       // on then stop waiting.  also if it's not on the border
@@ -1905,7 +1937,19 @@ void Server::applyMouseMoveSecondary(int32_t dx, int32_t dy)
       break;
     }
 
+    // hold small pushes back through the edge this screen was entered from
+    if (m_entryGuard.holdLeave(dir, -ScreenEntryGuard::distanceInsideEdge(dir, m_x, m_y, ax, ay, aw, ah))) {
+      LOG_DEBUG(
+          "entry guard held leaving \"%s\" %s (push %d)", getName(m_active).c_str(), Config::dirName(dir),
+          m_entryGuard.accumulatedPush()
+      );
+      newScreen = m_active;
+      jump = false;
+      break;
+    }
+
     // try to switch screen.  get the neighbor.
+    leaveDir = dir;
     newScreen = mapToNeighbor(m_active, dir, m_x, m_y);
 
     // see if we should switch
@@ -1921,6 +1965,7 @@ void Server::applyMouseMoveSecondary(int32_t dx, int32_t dy)
 
     // switch screens
     switchScreen(newScreen, newX, newY, false);
+    armEntryGuard(newScreen, leaveDir);
   } else {
     // same screen.  clamp mouse to edge.
     m_x = xOld + dx;
@@ -2150,6 +2195,7 @@ void Server::forceLeaveClient(const BaseClientProxy *client)
 
     // cut over
     m_active = m_primaryClient;
+    m_entryGuard.reset();
 
     // enter new screen (unless we already have because of the
     // screen saver)

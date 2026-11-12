@@ -272,6 +272,9 @@ QVariant Settings::defaultValue(const QString &key)
   if (key == Server::MouseSendRateHz)
     return 250; // 0 = send every hook event (upstream behaviour)
 
+  if (key == Server::EntryGuardPixels)
+    return 64; // px of push needed to leave a client through its entry edge; 0 = off
+
   if (key == Server::SwitchDelay || key == Server::SwitchDoubleTap)
     return 250;
 
