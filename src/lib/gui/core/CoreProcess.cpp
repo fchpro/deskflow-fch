@@ -27,6 +27,13 @@
 #include <QMutexLocker>
 #include <QRegularExpression>
 
+#ifdef Q_OS_WIN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
 namespace deskflow::gui {
 
 const int kRetryDelay = 1000;
@@ -95,6 +102,42 @@ QString CoreProcess::wrapIpv6(const QString &address)
   return wrapped;
 }
 
+#ifdef Q_OS_WIN
+/**
+ * @brief Windows equivalent of the Linux PR_SET_PDEATHSIG below: the core joins a job that is
+ * closed (killing the core) when the gui process exits for any reason, including a crash.
+ * Prevents an orphaned core that the next gui cannot manage.
+ */
+static void killCoreWithGui(qint64 pid)
+{
+  static const HANDLE job = [] {
+    const HANDLE handle = CreateJobObjectW(nullptr, nullptr);
+    if (handle != nullptr) {
+      JOBOBJECT_EXTENDED_LIMIT_INFORMATION info{};
+      info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+      if (!SetInformationJobObject(handle, JobObjectExtendedLimitInformation, &info, sizeof(info))) {
+        CloseHandle(handle);
+        return HANDLE{nullptr};
+      }
+    }
+    return handle;
+  }();
+
+  if (job == nullptr) {
+    qWarning("could not create core job object, error: %lu", GetLastError());
+    return;
+  }
+
+  const HANDLE process = OpenProcess(PROCESS_SET_QUOTA | PROCESS_TERMINATE, FALSE, static_cast<DWORD>(pid));
+  if (process == nullptr || !AssignProcessToJobObject(job, process)) {
+    qWarning("could not tie core lifetime to gui, error: %lu", GetLastError());
+  }
+  if (process != nullptr) {
+    CloseHandle(process);
+  }
+}
+#endif
+
 //
 // CoreProcess
 //
@@ -150,9 +193,12 @@ void CoreProcess::checkExistingProcess()
   qInfo("checking existing core");
 
   auto *client = new ipc::CoreIpcClient(this);
+  // fork: an existing core is unowned (e.g. orphaned by a gui crash), so the gui cannot show,
+  // stop or restart it and it keeps settings read at its own start (e.g. a stale excluded apps list).
+  // stop it even when the version matches and start an owned core with the current settings.
   connect(client, &ipc::CoreIpcClient::connected, this, [client] {
-    qInfo("existing core has matching version, leaving it running");
-    client->deleteLater();
+    qInfo("existing core is not owned by this gui, asking it to stop");
+    client->sendStop();
   });
   connect(client, &ipc::CoreIpcClient::versionMismatch, this, [client] {
     qInfo("existing core has mismatched version, asking it to stop");
@@ -237,6 +283,9 @@ void CoreProcess::startForegroundProcess(const QStringList &args)
   m_process->start(m_appPath, args);
 
   if (m_process->waitForStarted()) {
+#ifdef Q_OS_WIN
+    killCoreWithGui(m_process->processId());
+#endif
     setProcessState(Started);
   } else {
     setProcessState(Stopped);
